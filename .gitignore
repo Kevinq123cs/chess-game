@@ -1,0 +1,6 @@
+# Notion sync: secrets, machine state, logs, caches
+nimbalyst-local/.env
+nimbalyst-local/sync-state.json
+nimbalyst-local/sync-warnings.log
+__pycache__/
+*.pyc
