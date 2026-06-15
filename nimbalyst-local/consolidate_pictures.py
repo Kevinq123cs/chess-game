@@ -5,7 +5,7 @@ remove emptied folders. Run with --apply."""
 import os, re, sys, json, shutil
 from urllib.parse import unquote, quote
 
-VAULT = "/Users/kq/Downloads/J_Tian_Notion copy"
+VAULT = os.environ.get("VAULT", "/Users/kq/Downloads/J_Tian_Notion copy")
 APPLY = "--apply" in sys.argv
 IMG_EXT = (".png", ".jpg", ".jpeg", ".gif", ".webp", ".svg")
 SECTORS = ["AI hardware","Semi","Big Tech","Aerospace & Defense","Software",

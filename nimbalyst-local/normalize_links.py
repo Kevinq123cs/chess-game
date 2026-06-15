@@ -4,7 +4,7 @@ encoding issues), removing any that are genuinely dead. Run with --apply."""
 import os, re, sys, glob
 from urllib.parse import unquote, quote
 
-VAULT = "/Users/kq/Downloads/J_Tian_Notion copy"
+VAULT = os.environ.get("VAULT", "/Users/kq/Downloads/J_Tian_Notion copy")
 APPLY = "--apply" in sys.argv
 os.chdir(VAULT)
 

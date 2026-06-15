@@ -1,4 +1,43 @@
-# Plan: Consolidate images into a `Pictures/` folder per `_database` (de-bloat)
+# Plan: Build "Jeff's database (claude sorted)" from the backup
+
+## Context
+The user wants the cleaned J_Tian_Notion vault delivered into the empty Obsidian vault at `/Users/kq/Documents/Jeff's database (claude sorted)/`, with two fixes applied first: (1) **remove the Image Library**, (2) **move PDFs into the `Pictures/` folders** (same as images were). The chosen source `Downloads/J_Tian_Notion copy` **no longer exists on disk**, so I fall back to the user's original instruction: re-process **`Downloads/J_Tian_Notion copy_backup`** — which yields the identical, previously-verified end-state.
+
+**Source state** (`J_Tian_Notion copy_backup`): graph-cleaned (renamed notes, wikilinks, `Home.md`, sector color groups) BUT still has the 9-note `Image Library/` and all 2,246 images + 91 PDFs scattered (none in `Pictures/`). 316 research notes + 9 library notes = 325 `.md`.
+**Destination**: empty vault, has its own `.obsidian/` (app/appearance/workspace + a default graph.json) — preserve those, but bring the **tuned graph.json** (sector colors, orphans/unresolved hidden) per user.
+
+This is exactly the transformation sequence already proven on the old copy: **consolidate images → move PDFs → normalize links**, which removes the Image Library and produced 0 broken links / 91-of-91 PDFs in Pictures.
+
+## Approach (reuse the committed, verified scripts)
+The three scripts in `nimbalyst-local/` already implement and validated every step. Make them path-agnostic and run them against the destination.
+
+1. **Parameterize** `consolidate_pictures.py`, `move_pdfs_clean_dead.py`, `normalize_links.py`: change the hardcoded `VAULT = "…/J_Tian_Notion copy"` to `VAULT = os.environ.get("VAULT", <old default>)`. (One-line edit each; preserves behavior.)
+2. **Copy source content** into the destination (preserve destination `.obsidian`):
+   `rsync -a --exclude=.obsidian --exclude=.DS_Store "…/J_Tian_Notion copy_backup/" "…/Jeff's database (claude sorted)/"`
+3. **Bring tuned graph settings**: copy `…copy_backup/.obsidian/graph.json` → destination `.obsidian/graph.json` (keeps destination's other config). The scripts will later drop the now-unneeded `tag:#images` color group.
+4. **Run the proven sequence** with `VAULT="…/Jeff's database (claude sorted)"` (dry-run each, then `--apply`):
+   - `consolidate_pictures.py` → deletes `Image Library/`, removes the `[[Image Library]]` link from `Home.md`, drops the `tag:#images` graph group, and moves every image into `<Sector>_database/Pictures/<Company>/`, rewriting embeds.
+   - `move_pdfs_clean_dead.py` → moves the 91 PDFs into the same `Pictures/<Company>/`, rewrites their links, removes genuinely-dead links.
+   - `normalize_links.py` → fixes any double-encoded/odd attachment link paths.
+
+Sources (`copy_backup`, the two raw originals) remain untouched; this is a copy, not a move.
+
+## Critical files / paths
+- Edited (params): `nimbalyst-local/consolidate_pictures.py`, `move_pdfs_clean_dead.py`, `normalize_links.py`
+- Written: everything under `/Users/kq/Documents/Jeff's database (claude sorted)/` (8 sectors, `Home.md`, `Pictures/` trees) + that vault's `.obsidian/graph.json`
+- Untouched: `J_Tian_Notion copy_backup`, `Desktop/J_Tian_Notion`, `Downloads/J_Tian_Notion`
+
+## Verification (run against the destination)
+1. **Structure**: 8 sector folders + `Home.md`; **no `Image Library/`**; `Home.md` has no `[[Image Library]]` link.
+2. **Counts**: 316 `.md`; 2,246 images and 91 PDFs, **all inside `Pictures/`**, 0 stray.
+3. **Links**: 0 broken image embeds; 0 broken local file links (reuse the scan from the prior step).
+4. **graph.json**: valid; sector color groups present, `tag:#images` absent, `showOrphans:false`, `hideUnresolved:true`.
+5. **Sources intact**: backup + 2 originals unchanged (still no `Pictures/`).
+6. **Manual (user)**: open `Jeff's database (claude sorted)` in Obsidian — notes render, images/PDFs resolve, graph is color-coded, file tree shows one `Pictures/` per database.
+
+---
+
+# (DONE / earlier) Plan: Consolidate images into a `Pictures/` folder per `_database` (de-bloat)
 
 ## Context
 The scattered images (2,246 of them, interleaved through every company/category folder) make the vault tree noisy. The user wants each sector's images **physically consolidated into one `Pictures/` folder inside that sector's `_database`**, grouped by company, to cut the bloat. This **supersedes the virtual Image Library** (those 9 gallery notes are to be deleted).
