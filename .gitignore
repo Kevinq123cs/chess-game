@@ -4,3 +4,7 @@ nimbalyst-local/sync-state.json
 nimbalyst-local/sync-warnings.log
 __pycache__/
 *.pyc
+
+# run logs and OS cruft
+nimbalyst-local/*.log
+.DS_Store

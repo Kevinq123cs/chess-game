@@ -1,28 +1,40 @@
 #!/usr/bin/env python3
 """Notion blocks -> vault-style Markdown.
 
-Produces a list of RenderedBlock units (one per top-level Notion block). Each
-unit carries a stable `key` (for diffing), its markdown `text`, and any image
-descriptors. Images are emitted as placeholder tokens; the orchestrator swaps in
-the real local link after downloading bytes (URLs expire, so we can't key on
-them).
+Two modes:
+- shallow=True (default for the walk): render only top-level blocks, making ZERO
+  extra API calls. Blocks with nested content (lists with sub-items, columns,
+  toggles, tables) are emitted as single units flagged `needs_deep`. This is all
+  that's needed for change detection and key snapshots, and keeps the walk from
+  exploding into nested block_children calls.
+- shallow=False (deep): fully expand nested children. Used only to materialize a
+  block that is actually new and about to be inserted, so deep fetches stay
+  proportional to new content, not the whole vault.
+
+Each RenderedBlock carries a stable `key` (for diffing), markdown `text`, image
+descriptors (placeholder tokens swapped for local links by the caller), and the
+raw `block` so a shallow unit can be deep-rendered later.
 """
+from __future__ import annotations
 import re
 
-IMG_PH = "\x00IMG{}\x00"  # placeholder token, replaced after download
+IMG_PH = "\x00IMG{}\x00"
 
 
 class RenderedBlock:
-    __slots__ = ("key", "text", "images", "is_image", "child_page_id", "title")
+    __slots__ = ("key", "text", "images", "is_image", "child_page_id", "title",
+                 "block", "needs_deep")
 
-    def __init__(self, key, text, images=None, is_image=False,
-                 child_page_id=None, title=None):
-        self.key = key                  # stable diff key (None for images: set later)
-        self.text = text                # markdown, may contain IMG placeholders
-        self.images = images or []      # [{"url","external","caption","ph"}]
+    def __init__(self, key, text, images=None, is_image=False, child_page_id=None,
+                 title=None, block=None, needs_deep=False):
+        self.key = key
+        self.text = text
+        self.images = images or []
         self.is_image = is_image
         self.child_page_id = child_page_id
-        self.title = title              # for child_page
+        self.title = title
+        self.block = block
+        self.needs_deep = needs_deep
 
 
 def _norm(s: str) -> str:
@@ -30,7 +42,6 @@ def _norm(s: str) -> str:
 
 
 def _rich(rich) -> str:
-    """rich_text array -> inline markdown with annotations + links."""
     out = []
     for t in rich or []:
         txt = t.get("plain_text", "")
@@ -45,9 +56,8 @@ def _rich(rich) -> str:
             txt = f"*{txt}*"
         if a.get("strikethrough"):
             txt = f"~~{txt}~~"
-        href = t.get("href")
-        if href:
-            txt = f"[{txt}]({href})"
+        if t.get("href"):
+            txt = f"[{txt}]({t['href']})"
         out.append(txt)
     return "".join(out)
 
@@ -59,124 +69,117 @@ def _plain(rich) -> str:
 def _image_unit(block, idx_holder) -> RenderedBlock:
     img = block.get("image", {})
     if img.get("type") == "external":
-        url, external = img.get("external", {}).get("url", ""), True
+        url = img.get("external", {}).get("url", "")
     else:
-        url, external = img.get("file", {}).get("url", ""), False
+        url = img.get("file", {}).get("url", "")
     caption = _plain(img.get("caption"))
     ph = IMG_PH.format(idx_holder[0])
     idx_holder[0] += 1
-    desc = {"url": url, "external": external, "caption": caption, "ph": ph}
-    alt = caption or "image"
-    # keyed by stable Notion block id so existing images aren't re-downloaded
-    return RenderedBlock(key=f"img:{block['id']}", text=f"![{alt}]({ph})",
-                         images=[desc], is_image=True)
+    desc = {"url": url, "external": img.get("type") == "external",
+            "caption": caption, "ph": ph}
+    return RenderedBlock(f"img:{block['id']}", f"![{caption or 'image'}]({ph})",
+                         images=[desc], is_image=True, block=block)
 
 
-def render(blocks, notion, idx_holder=None) -> list:
-    """Top-level blocks -> [RenderedBlock]. `notion` used to fetch nested children."""
+def render(blocks, notion, shallow=False, idx_holder=None) -> list:
     if idx_holder is None:
         idx_holder = [0]
     units = []
     for b in blocks:
         t = b.get("type")
-        data = b.get(t, {})
+        data = b.get(t, {}) if isinstance(b.get(t), dict) else {}
+        rich = data.get("rich_text")
 
         if t == "paragraph":
-            md = _rich(data.get("rich_text"))
-            if not md.strip():
-                continue  # skip empty paragraphs (vault uses blank lines)
-            units.append(RenderedBlock(f"p:{_norm(_plain(data.get('rich_text')))}", md))
+            md = _rich(rich)
+            if md.strip():
+                units.append(RenderedBlock(f"p:{_norm(_plain(rich))}", md, block=b))
 
         elif t in ("heading_1", "heading_2", "heading_3"):
-            hashes = "#" * int(t[-1])
-            md = _rich(data.get("rich_text"))
-            units.append(RenderedBlock(f"h:{_norm(_plain(data.get('rich_text')))}",
-                                       f"{hashes} {md}"))
+            units.append(RenderedBlock(f"h:{_norm(_plain(rich))}",
+                                       f"{'#' * int(t[-1])} {_rich(rich)}", block=b))
 
         elif t in ("bulleted_list_item", "numbered_list_item", "to_do"):
             marker = "1." if t == "numbered_list_item" else "-"
-            md = _rich(data.get("rich_text"))
+            md = _rich(rich)
             if t == "to_do":
-                box = "[x]" if data.get("checked") else "[ ]"
-                md = f"{box} {md}"
-            lines = [f"{marker} {md}"]
+                md = f"[{'x' if data.get('checked') else ' '}] {md}"
+            lines, imgs, needs_deep = [f"{marker} {md}"], [], False
             if b.get("has_children"):
-                for sub in render(notion.block_children(b["id"]), notion, idx_holder):
-                    for ln in sub.text.split("\n"):
-                        lines.append("\t" + ln)
-                    units_imgs = sub.images
-                    # bubble nested images up to this unit
-                    if units_imgs:
-                        # attach to the list unit below
-                        pass
-            unit = RenderedBlock(f"li:{_norm(_plain(data.get('rich_text')))}",
-                                 "\n".join(lines))
-            units.append(unit)
+                if shallow:
+                    needs_deep = True
+                else:
+                    for sub in render(notion.block_children(b["id"]), notion, False,
+                                      idx_holder):
+                        for ln in sub.text.split("\n"):
+                            lines.append("\t" + ln)
+                        imgs.extend(sub.images)
+            units.append(RenderedBlock(f"li:{_norm(_plain(rich))}", "\n".join(lines),
+                                       images=imgs, block=b, needs_deep=needs_deep))
 
-        elif t == "quote":
-            md = _rich(data.get("rich_text"))
-            units.append(RenderedBlock(f"q:{_norm(_plain(data.get('rich_text')))}",
-                                       f"> {md}"))
-
-        elif t == "callout":
-            md = _rich(data.get("rich_text"))
-            units.append(RenderedBlock(f"co:{_norm(_plain(data.get('rich_text')))}",
-                                       f"> {md}"))
+        elif t in ("quote", "callout"):
+            units.append(RenderedBlock(f"q:{_norm(_plain(rich))}", f"> {_rich(rich)}",
+                                       block=b))
 
         elif t == "code":
-            lang = data.get("language", "")
-            code = _plain(data.get("rich_text"))
+            code = _plain(rich)
             units.append(RenderedBlock(f"code:{_norm(code)[:80]}",
-                                       f"```{lang}\n{code}\n```"))
+                                       f"```{data.get('language','')}\n{code}\n```",
+                                       block=b))
 
         elif t == "divider":
-            units.append(RenderedBlock("hr", "---"))
+            units.append(RenderedBlock(f"hr:{b['id']}", "---", block=b))
 
         elif t == "image":
             units.append(_image_unit(b, idx_holder))
 
-        elif t == "child_page":
+        elif t in ("child_page", "child_database"):
             title = data.get("title", "").strip()
             units.append(RenderedBlock(f"cp:{b['id']}", f"[[{title}]]",
-                                       child_page_id=b["id"], title=title))
+                                       child_page_id=b["id"], title=title, block=b))
 
-        elif t == "child_database":
-            title = data.get("title", "").strip()
-            units.append(RenderedBlock(f"cdb:{b['id']}", f"[[{title}]]",
-                                       child_page_id=b["id"], title=title))
-
-        elif t in ("column_list",):
-            # Obsidian has no columns: flatten grandchildren in order
-            for col in notion.block_children(b["id"]):
-                if col.get("has_children"):
-                    units.extend(render(notion.block_children(col["id"]),
-                                        notion, idx_holder))
+        elif t == "column_list":
+            if shallow:
+                units.append(RenderedBlock(f"col:{b['id']}", "", block=b, needs_deep=True))
+            else:
+                for col in notion.block_children(b["id"]):
+                    if col.get("has_children"):
+                        units.extend(render(notion.block_children(col["id"]), notion,
+                                            False, idx_holder))
 
         elif t == "toggle":
-            md = _rich(data.get("rich_text"))
-            units.append(RenderedBlock(f"p:{_norm(_plain(data.get('rich_text')))}", md))
-            if b.get("has_children"):
-                units.extend(render(notion.block_children(b["id"]), notion, idx_holder))
+            units.append(RenderedBlock(f"p:{_norm(_plain(rich))}", _rich(rich), block=b,
+                                       needs_deep=(shallow and b.get("has_children"))))
+            if not shallow and b.get("has_children"):
+                units.extend(render(notion.block_children(b["id"]), notion, False,
+                                    idx_holder))
 
         elif t in ("bookmark", "embed", "link_preview"):
             url = data.get("url", "")
             if url:
-                units.append(RenderedBlock(f"link:{_norm(url)}", url))
+                units.append(RenderedBlock(f"link:{_norm(url)}", url, block=b))
 
         elif t == "table":
-            if b.get("has_children"):
-                rows = []
-                for row in notion.block_children(b["id"]):
-                    cells = row.get("table_row", {}).get("cells", [])
-                    rows.append("| " + " | ".join(_rich(c) for c in cells) + " |")
+            if shallow:
+                units.append(RenderedBlock(f"tbl:{b['id']}", "", block=b, needs_deep=True))
+            elif b.get("has_children"):
+                rows = ["| " + " | ".join(_rich(c) for c in
+                        row.get("table_row", {}).get("cells", [])) + " |"
+                        for row in notion.block_children(b["id"])]
                 if rows:
-                    units.append(RenderedBlock(f"table:{_norm(rows[0])[:80]}",
-                                               "\n".join(rows)))
+                    units.append(RenderedBlock(f"tbl:{b['id']}", "\n".join(rows), block=b))
 
         else:
-            # unknown: best-effort plain text, skip if empty
-            txt = _plain(data.get("rich_text")) if isinstance(data, dict) else ""
+            txt = _plain(rich)
             if txt.strip():
-                units.append(RenderedBlock(f"x:{_norm(txt)}", _rich(data.get("rich_text"))))
+                units.append(RenderedBlock(f"x:{_norm(txt)}", _rich(rich), block=b))
 
     return units
+
+
+def deep_render(unit, notion) -> tuple:
+    """Fully expand a single shallow unit. Returns (text, images)."""
+    deep = render([unit.block], notion, shallow=False)
+    text = "\n\n".join(u.text for u in deep if u.text)
+    images = [img for u in deep for img in u.images]
+    return text, images

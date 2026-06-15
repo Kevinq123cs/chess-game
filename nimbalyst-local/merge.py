@@ -27,14 +27,14 @@ def _norm_line(s: str) -> str:
     return re.sub(r"\s+", " ", s).strip().lower()
 
 
-def _full_norm(unit) -> str:
-    txt = re.sub(r"\x00IMG\d+\x00", "", unit.text)
-    txt = re.sub(r"[*`_>#]", "", txt).replace("\\", "")
-    return re.sub(r"\s+", " ", txt).strip().lower()
+def _norm_text(s: str) -> str:
+    s = re.sub(r"\x00IMG\d+\x00", "", s or "")
+    s = re.sub(r"[*`_>#]", "", s).replace("\\", "")
+    return re.sub(r"\s+", " ", s).strip().lower()
 
 
 def _snippet(unit) -> str:
-    return _full_norm(unit)[:40]
+    return _norm_text(unit.text)[:40]
 
 
 def _locate(unit, lines, norm_lines) -> int | None:
@@ -92,17 +92,18 @@ def _near_duplicate(text_norm: str, candidates: list):
     return None
 
 
-def merge(file_text: str, units: list, known: set, localize, note_dir: str):
-    """Return (new_text, n_added_units, added_keys, imgs_done, warnings).
+def merge(file_text: str, units: list, known: set, render_new):
+    """Return (new_text, n_added_units, added_keys, warnings).
 
-    `localize(desc, note_dir) -> str` swaps an image placeholder for a local link.
+    `render_new(unit) -> str` materializes a new unit (deep-render + image
+    localization). It is called only for blocks actually being inserted.
     `warnings` is a list of {"new","near","score"} near-duplicate signals.
     """
     lines = file_text.split("\n")
     norm_lines = [_norm_line(l) for l in lines]
     new_flags = [u.key not in known for u in units]
     if not any(new_flags):
-        return file_text, 0, [], 0, []
+        return file_text, 0, [], []
 
     # candidate pool for the tripwire: existing substantive lines (pre-insert)
     cmp_pool = [nl for nl in norm_lines if len(nl) >= _MIN_CMP_LEN]
@@ -111,7 +112,6 @@ def merge(file_text: str, units: list, known: set, localize, note_dir: str):
     ops = []
     added_keys = []
     warnings = []
-    imgs_done = 0
 
     i, n = 0, len(units)
     while i < n:
@@ -127,20 +127,15 @@ def merge(file_text: str, units: list, known: set, localize, note_dir: str):
 
         rendered = []
         for u in run:
+            text = render_new(u)
             # near-duplicate tripwire (text blocks only; never alters behaviour)
             if not u.is_image and not u.child_page_id:
-                a = _full_norm(u)
+                a = _norm_text(text)
                 if len(a) >= _MIN_CMP_LEN:
                     hit = _near_duplicate(a, cmp_pool)
                     if hit:
-                        warnings.append({"new": u.text[:120],
-                                         "near": hit[1][:120],
+                        warnings.append({"new": text[:120], "near": hit[1][:120],
                                          "score": round(hit[0], 3)})
-            text = u.text
-            for desc in u.images:
-                link = localize(desc, note_dir)
-                text = text.replace(desc["ph"], link)
-                imgs_done += 1
             rendered.append(text)
 
         run_lines = []
@@ -173,4 +168,4 @@ def merge(file_text: str, units: list, known: set, localize, note_dir: str):
 
     new_text = "\n".join(lines)
     new_text = re.sub(r"\n{4,}", "\n\n\n", new_text)
-    return new_text, len(added_keys), added_keys, imgs_done, warnings
+    return new_text, len(added_keys), added_keys, warnings

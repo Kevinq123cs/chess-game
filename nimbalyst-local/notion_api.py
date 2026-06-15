@@ -6,13 +6,18 @@ Uses the 2025-09-03 API generation, where a database exposes one or more
 """
 from __future__ import annotations
 import os
+import sys
 import time
 import json
+import threading
 import urllib.request
 import urllib.error
 
+DEBUG = bool(os.environ.get("NOTION_DEBUG"))
+
 API = "https://api.notion.com/v1"
 VERSION = os.environ.get("NOTION_VERSION", "2025-09-03")
+MIN_INTERVAL = 1.0 / 3.0          # ~3 req/s, Notion's documented ceiling
 
 
 class NotionError(RuntimeError):
@@ -29,21 +34,38 @@ class Notion:
             "Notion-Version": VERSION,
             "Content-Type": "application/json",
         }
+        self._next_slot = 0.0
+        self._lock = threading.Lock()
+
+    def _throttle(self):
+        """Reserve the next send slot (thread-safe), then sleep to it OUTSIDE the
+        lock so concurrent requests start ~MIN_INTERVAL apart and their network
+        latencies overlap."""
+        with self._lock:
+            now = time.monotonic()
+            slot = max(now, self._next_slot)
+            self._next_slot = slot + MIN_INTERVAL
+        delay = slot - time.monotonic()
+        if delay > 0:
+            time.sleep(delay)
 
     # ---- low level -----------------------------------------------------------
     def _request(self, method: str, path: str, body: dict | None = None) -> dict:
         url = f"{API}/{path.lstrip('/')}"
         data = json.dumps(body).encode() if body is not None else None
+        if DEBUG:
+            print(f"API {method} {path}", file=sys.stderr, flush=True)
         for attempt in range(6):
+            self._throttle()
             req = urllib.request.Request(url, data=data, method=method,
                                          headers=self._headers)
             try:
                 with urllib.request.urlopen(req, timeout=60) as r:
                     return json.loads(r.read().decode())
             except urllib.error.HTTPError as e:
-                # 429 rate limit / 5xx -> backoff and retry
+                # 429 rate limit / 5xx -> honour Retry-After, else short backoff
                 if e.code in (429, 502, 503, 504):
-                    wait = float(e.headers.get("Retry-After", 1.5 * (attempt + 1)))
+                    wait = float(e.headers.get("Retry-After", 1.0 + attempt))
                     time.sleep(wait)
                     continue
                 raise NotionError(f"{e.code} {method} {path}: {e.read().decode()[:300]}")

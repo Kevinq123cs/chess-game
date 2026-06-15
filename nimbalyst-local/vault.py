@@ -56,8 +56,14 @@ def safe_filename(title: str) -> str:
 
 
 def norm_title(title: str) -> str:
-    """Normalized key for matching a Notion title to a local file/folder."""
-    return re.sub(r"\s+", " ", clean(safe_filename(title))).strip().lower()
+    """Normalized key for matching a Notion title to a local file/folder.
+
+    Folds punctuation to spaces so e.g. 'C3.AI C3 Transform' matches the local
+    'C3 AI C3 Transform' (only a '.' vs space apart). Keeps alphanumerics and CJK.
+    """
+    s = clean(safe_filename(title)).lower()
+    s = re.sub(r"[^0-9a-z一-鿿]+", " ", s)
+    return re.sub(r"\s+", " ", s).strip()
 
 
 def db_dir(sector: str) -> str:
