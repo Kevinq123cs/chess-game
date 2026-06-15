@@ -1,4 +1,4 @@
-# Plan: Build "Jeff's database (claude sorted)" from the backup
+# Plan: Build Notion updates into "Jeff's database (claude sorted)" from the backup
 
 ## Context
 The user wants the cleaned J_Tian_Notion vault delivered into the empty Obsidian vault at `/Users/kq/Documents/Jeff's database (claude sorted)/`, with two fixes applied first: (1) **remove the Image Library**, (2) **move PDFs into the `Pictures/` folders** (same as images were). The chosen source `Downloads/J_Tian_Notion copy` **no longer exists on disk**, so I fall back to the user's original instruction: re-process **`Downloads/J_Tian_Notion copy_backup`** — which yields the identical, previously-verified end-state.
@@ -16,9 +16,9 @@ The three scripts in `nimbalyst-local/` already implement and validated every st
    `rsync -a --exclude=.obsidian --exclude=.DS_Store "…/J_Tian_Notion copy_backup/" "…/Jeff's database (claude sorted)/"`
 3. **Bring tuned graph settings**: copy `…copy_backup/.obsidian/graph.json` → destination `.obsidian/graph.json` (keeps destination's other config). The scripts will later drop the now-unneeded `tag:#images` color group.
 4. **Run the proven sequence** with `VAULT="…/Jeff's database (claude sorted)"` (dry-run each, then `--apply`):
-   - `consolidate_pictures.py` → deletes `Image Library/`, removes the `[[Image Library]]` link from `Home.md`, drops the `tag:#images` graph group, and moves every image into `<Sector>_database/Pictures/<Company>/`, rewriting embeds.
-   - `move_pdfs_clean_dead.py` → moves the 91 PDFs into the same `Pictures/<Company>/`, rewrites their links, removes genuinely-dead links.
-   - `normalize_links.py` → fixes any double-encoded/odd attachment link paths.
+  - `consolidate_pictures.py` → deletes `Image Library/`, removes the `[[Image Library]]` link from `Home.md`, drops the `tag:#images` graph group, and moves every image into `<Sector>_database/Pictures/<Company>/`, rewriting embeds.
+  - `move_pdfs_clean_dead.py` → moves the 91 PDFs into the same `Pictures/<Company>/`, rewrites their links, removes genuinely-dead links.
+  - `normalize_links.py` → fixes any double-encoded/odd attachment link paths.
 
 Sources (`copy_backup`, the two raw originals) remain untouched; this is a copy, not a move.
 
