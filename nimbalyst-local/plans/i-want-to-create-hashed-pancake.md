@@ -253,3 +253,70 @@ name + muted `who` + share band), and `.player-line` rendered inline as
 3. Confirm bar chart + genset donuts still render and compute (`gensetYearTotal` unchanged
    at ~8.1/12.8/22.4/29.5); **Reset** still works for genset shares.
 4. Screenshot the new section inline for review.
+
+---
+
+# Update 3 — Genset section: macro reframe, colo back in the pie, section-level Reset
+
+## Context
+Three asks for the genset section: **(1)** reframe it as **macro** (drop the "Weichai TAM"
+language — Weichai comes later); **(2)** bring **colo back into the pie as a 4th, distinctly
+coloured slice that IS summed into the total** — T3a China and colo stay separate categories
+(they're fundamentally different), and the small double-count is acceptable because both are
+tiny; **(3)** give the pie section its **own Reset** so tweaking a share updates the donuts
+but can be reverted to the original data. This reverses Update 1's "colo = memo" treatment.
+
+## Approach (single file: `ai-capex.html`)
+
+**1. Colo becomes a 4th additive category.** In the genset config (`ai-capex.html:491–506`):
+- Fold colo into `GENSET_CATS` as a 4th entry (keep its `COLO_REF` base `:488` and teal
+  `#2DD4BF`, which is already distinct from the blue/orange/purple tiers):
+  `{ key:'colo', name:'Colo (Equinix/DLR)', color:'#2DD4BF', pct:6.5, range:[5,8], capex:(k)=>COLO_REF[k] }`.
+- Delete the standalone `const COLO` (`:498`), `SHARE_CATS`/`SHARE_BASE` (`:501–502`), and
+  `coloMemo` (`:506`). Add `const GENSET_BASE = GENSET_CATS.map(c=>c.pct);`.
+- `gensetYearTotal` (`:505`) now sums all four (colo included) — no code change beyond the
+  array; new totals ≈ **8.5 / 13.3 / 23.0 / 30.3 $B**.
+
+**2. Remove the memo UI.** In `renderDonuts` (`:567`) delete the `dc-memo` caption block
+(`:603–608`); the 4th slice now appears in the ring automatically. In `renderGensetLegend`
+(`:543`) drop the separate dashed "(memo — not in total)" entry (`:552–557`) so the loop
+over `GENSET_CATS` renders all four normally. In `renderGensetAssumptions` (`:508`) drop the
+`· memo` tag (`:515`) and swap `SHARE_CATS`/`SHARE_BASE` → `GENSET_CATS`/`GENSET_BASE`. Delete
+the now-unused `.dc-memo` / `.memo-dot` CSS (`:134–135`).
+
+**3. Section-level Reset (replaces the header Reset).** The header `#reset` (`:147`) is now
+the *only* global control and it only resets genset shares — move it into the genset panel:
+- Remove `<button id="reset">` from the header (`:147`).
+- In the genset panel (`:166–172`), put the title in a flex row with a `#genset-reset`
+  button: `<div class="gs-head"><div class="table-title">…</div><button id="genset-reset"
+  class="btn-reset" disabled>Reset</button></div>`.
+- Reuse the existing reset button styling: rename CSS selector `button#reset` → `.btn-reset`
+  (find in the header CSS block) and add `.gs-head{display:flex;justify-content:space-between;
+  align-items:center;gap:16px;}`.
+- Rewire `isDirty`/`updateResetState`/handler (`:472–480`): compare `GENSET_CATS` vs
+  `GENSET_BASE`, target `el('genset-reset')`, and on click reset pcts + re-render just the
+  genset bits (`renderGensetAssumptions(); renderDonuts(); updateResetState();`).
+
+**4. Macro copy.** Retitle `:167` "Genset spending — Weichai TAM" → **"Genset spending"**;
+rewrite the subtitle `:168` to macro framing ("Backup-power (genset) slice of data-center
+capex = capex × genset share; donut centre = each year's total; shares are editable
+assumptions, midpoints of the source ranges"). Replace the Weichai/memo footnote `:172` with
+a short macro note: colo (Equinix+DLR) capex partly overlaps the hyperscaler tiers but is
+small, so it's included as its own slice; edit a share to update the pies, Reset restores
+originals. (The tier-chart legend's "where Weichai captures full value" at `:224` is left
+as-is — out of scope; Weichai layer comes later.)
+
+## Reuse / touch points
+- Reuse `gensetVal`, `donutArc`, `renderDonuts`, `formatNum`, and the existing
+  `.ga-*` / `.gl-*` / `.donut-card` CSS. Only the genset block + header button change.
+- Post-change: update the `capex-app-purpose` memory to note the genset view is now macro
+  (Weichai is a future layer), done during implementation (not in plan mode).
+
+## Verification
+1. Reload preview (`browser_navigate` + `browser_evaluate`).
+2. Assert: each donut has **4 slices**; `gensetYearTotal` ≈ 8.5 / 13.3 / 23.0 / 30.3; no
+   `.dc-memo` nodes; legend has 4 items incl. colo; header has no `#reset`, panel has
+   `#genset-reset`.
+3. Edit a share (e.g. colo 6.5→8) → donuts + total update, `#genset-reset` enables; click
+   **Reset** → shares revert to base and donuts return to 8.5/13.3/23.0/30.3.
+4. Confirm bar chart + player rundown unchanged. Screenshot the genset section inline.
