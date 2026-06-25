@@ -171,7 +171,7 @@
       <div class="genset-assumptions" id="genset-assumptions"></div>
       <div class="genset-legend" id="genset-legend"></div>
       <div class="donut-row" id="donut-row"></div>
-      <div class="footnote">Colo (Equinix + DLR) capex partly overlaps the hyperscaler tiers, but it's small, so it's included here as its own slice. Edit a share to update the pies; <b>Reset</b> restores the original assumptions. Hover a slice for its $ and % of the year's genset total.</div>
+      <div class="footnote">Categories are owner-built capex (T1, T2, T3a China) — additive and clean, since each entity capitalizes what it builds. <b>Colo (Equinix/DLR) is deliberately excluded</b> — it's a landlord whose facilities house the same hyperscaler tenants already in T1/T2, so counting it would double-count. We'd rather under- than over-count. Edit a share to update the pies; <b>Reset</b> restores the originals.</div>
     </section>
   </div>
 
@@ -488,17 +488,15 @@
      ============================================================ */
   // Chinese Big-4 capex (T3a) — reference midpoints.
   const CHINA_REF = { '2024': 40, '2025': 50, '2026e': 70, '2027e': 84 };
-  // Colo capex (Equinix + Digital Realty, combined, US$bn) — rough, editable basis.
-  const COLO_REF = { '2024': 6, '2025': 8, '2026e': 10, '2027e': 12 };
 
-  // Genset spend categories. Colo (Equinix/DLR) is its own distinct slice — kept separate
-  // from T3a China and summed into the total. Its capex partly overlaps the hyperscaler
-  // tiers, but it's small enough that the double-count is immaterial at this macro level.
+  // Genset spend categories — only cleanly-additive, owner-built capex (each entity
+  // capitalizes what it builds, so these never double-count). Colo is deliberately
+  // EXCLUDED: it's a landlord whose facilities house the same hyperscaler tenants
+  // already counted in T1/T2, so including it would double-count. Count less, not more.
   const GENSET_CATS = [
     { key: 't1',  name: 'T1 Big-4',           color: '#4C8BF5', pct: 2.5, range: [2,3], capex: (k) => state[0].vals[k] },
     { key: 't2',  name: 'T2 Oracle/neocloud', color: '#FF9900', pct: 2.5, range: [2,3], capex: (k) => state[1].vals[k] },
     { key: 't3a', name: 'T3a China',          color: '#C74FE8', pct: 4.0, range: [3,5], capex: (k) => CHINA_REF[k] },
-    { key: 'colo', name: 'Colo (Equinix/DLR)', color: '#2DD4BF', pct: 6.5, range: [5,8], capex: (k) => COLO_REF[k] },
   ];
   const GENSET_BASE = GENSET_CATS.map(c => c.pct);
 
