@@ -103,3 +103,68 @@ the render functions stay pure and reusable.
 ## Next step after you approve
 You send me the 2024/2025/2026/2027e capex numbers (and which companies you want);
 I populate `REFERENCE`, then screenshot the result so we can tweak the design.
+
+---
+
+# Update — Fix colo double-counting (genset section)
+
+## Context
+The genset-spending donuts (added last) currently derive **T3b Colo capex** as
+`Math.max(0, Tier3_total − China)` — see `ai-capex.html:548`. That is wrong in two ways:
+1. **Oversized.** It treats the *entire* Tier-3 remainder (sovereign + enterprise + colo)
+   as colo — ~$96bn for 2027e. Real colo (Equinix + Digital Realty) is only ~$6–12bn/yr.
+2. **Double-counts.** Colo capex overlaps the other tiers: when a hyperscaler leases
+   capacity from Equinix, the *shell/power* (incl. gensets) is the colo's capex while the
+   GPUs are the tenant's. So colo cannot be cleanly **added** on top of the Big-4 number —
+   it's the same physical data center counted twice.
+
+User decisions: **(a)** colo becomes a **memo, outside the donut total**; **(b)** colo is
+scoped to **Equinix + DLR only**.
+
+## Approach (single file: `ai-capex.html`)
+
+**1. Main donut = cleanly additive only.** Reduce `GENSET_CATS` (currently 4, at
+`ai-capex.html:544–549`) to the three owned-facility categories: **T1 Big-4, T2
+Oracle/neocloud, T3a China**. `gensetYearTotal()` (`:553`) then sums only these, so colo
+is automatically excluded from the headline total. New totals: ~**8.1 → 12.8 → 22.4 → 29.5 $B**.
+
+**2. Colo as an explicit, separate memo.** Replace the `t3b` derived entry with a standalone
+object plus an explicit, editable capex base (rough Equinix + DLR combined):
+```js
+const COLO_REF = { '2024': 6, '2025': 8, '2026e': 10, '2027e': 12 }; // US$bn, editable
+const COLO = { key:'colo', name:'Colo (Equinix/DLR)', color:'#2DD4BF', pct:6.5, range:[5,8],
+               memo:true, capex:(k) => COLO_REF[k] };
+```
+Colo genset memo $ = `COLO_REF[k] × pct/100` ≈ **0.4 → 0.8 $B/yr** (small, honest).
+Remove the now-unused `CHINA_REF`-minus logic; `T3a China` keeps using `CHINA_REF` (`:543`).
+
+**3. Render the memo beside each donut.** In `renderDonuts()` (`:~600`), draw **3 slices**
+(the additive cats) and add a small caption under each donut card, below the year/badge,
+e.g. `colo memo · +0.8` in colo teal — clearly *separate* from the centered total. Add a
+`<title>`/footnote explaining colo overlaps other tiers and is not added in.
+
+**4. Keep colo share editable.** Build a combined `SHARE_CATS = [...GENSET_CATS, COLO]` used
+only by `renderGensetAssumptions()` (`:555`), `isDirty()` (`:527`) and the **Reset** handler
+(`:533`) so the colo share input, its edited-highlight, and reset all keep working. The
+assumptions row labels colo **"Colo (Equinix/DLR) · memo"**. `SHARE_BASE` replaces
+`GENSET_BASE` for baseline/reset comparison.
+
+**5. Legend + copy.** Genset legend lists the 3 additive categories; colo shown with a
+distinct **"(memo)"** marker. Update the section footnote to state plainly: *colo overlaps
+the other tiers (leased capacity) and is shown separately, not summed, to avoid
+double-counting.*
+
+## Reuse / touch points
+- `gensetVal()` (`:552`) is reused unchanged for both slices and the colo memo.
+- `renderDonuts`, `renderGensetAssumptions`, `isDirty`, reset handler, and `renderAll`
+  (`:~640`) are the only functions touched; data-model edits are localized to
+  `ai-capex.html:543–550`. No change to the bar chart or tier table.
+
+## Verification
+1. Reload `ai-capex.html` in the browser preview (MCP `browser_navigate` + `browser_evaluate`).
+2. Assert via `browser_evaluate`: donuts now have **3 slices** each; `gensetYearTotal` =
+   ~8.1 / 12.8 / 22.4 / 29.5; colo memo = ~0.4 / 0.5 / 0.65 / 0.8; colo is **not** in the total.
+3. Edit a tier total (e.g. Tier 1 2027e) → the 3-slice donut + total update; colo memo
+   unaffected (depends on `COLO_REF`, not tiers) — confirming the overlap is broken.
+4. Edit the colo share → memo updates, headline total does **not**.
+5. **Reset** → shares + tiers revert; screenshot the genset section inline for review.

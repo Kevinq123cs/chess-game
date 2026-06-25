@@ -144,6 +144,8 @@
     .donut-card { flex: 1 1 200px; min-width: 170px; display: flex; flex-direction: column; align-items: center; gap: 10px; }
     .donut-card svg { width: 100%; max-width: 210px; }
     .donut-card .dc-year { font-size: 0.95rem; color: #cfcfe8; letter-spacing: 1px; display: flex; align-items: center; gap: 9px; }
+    .donut-card .dc-memo { font-size: 0.78rem; color: #2DD4BF; display: flex; align-items: center; gap: 7px; cursor: help; }
+    .dc-memo .memo-dot { width: 9px; height: 9px; border-radius: 2px; border: 1.5px dashed #2DD4BF; flex: none; }
   </style>
 </head>
 <body>
@@ -177,11 +179,11 @@
 
     <section class="panel">
       <div class="table-title">Genset spending — Weichai TAM</div>
-      <div class="table-sub">Each year's genset spend = tier capex × genset share. Donut center = that year's total; slices split it by tier-category. Genset shares below are editable assumptions (seeded at the midpoint of each source range).</div>
+      <div class="table-sub">Each year's genset spend = tier capex × genset share. Donut center = that year's additive total; slices split it across the three owned-facility categories. Genset shares below are editable assumptions (seeded at the midpoint of each source range).</div>
       <div class="genset-assumptions" id="genset-assumptions"></div>
       <div class="genset-legend" id="genset-legend"></div>
       <div class="donut-row" id="donut-row"></div>
-      <div class="footnote">T3a China = Chinese Big-4 capex; T3b Colo = remaining Tier 3 (sovereign / enterprise / colo). Editing tier totals or shares above re-computes these pies live. Hover a slice for its $ and % of the year's genset total.</div>
+      <div class="footnote">T3a China = Chinese Big-4 capex. <b>Colo (Equinix + DLR ≈ $6–12bn/yr) is a memo, shown beside each donut but NOT summed in</b> — its capex overlaps the other tiers (a hyperscaler leasing colo space books the GPUs as capex while the colo books the shell/power), so adding it would double-count the same facility. Editing tier totals or shares re-computes everything live; hover a slice or the memo for detail.</div>
     </section>
   </div>
 
@@ -526,40 +528,51 @@
      ============================================================ */
   function isDirty() {
     const tiersDirty = state.some((t, ti) => YEARS.some(y => Number(t.vals[y.key]) !== Number(BASELINE[ti][y.key])));
-    const gensetDirty = GENSET_CATS.some((c, i) => Number(c.pct) !== Number(GENSET_BASE[i]));
+    const gensetDirty = SHARE_CATS.some((c, i) => Number(c.pct) !== Number(SHARE_BASE[i]));
     return tiersDirty || gensetDirty;
   }
   function updateResetState() { el('reset').disabled = !isDirty(); }
   el('reset').addEventListener('click', () => {
     state = buildState();
-    GENSET_CATS.forEach((c, i) => { c.pct = GENSET_BASE[i]; });
+    SHARE_CATS.forEach((c, i) => { c.pct = SHARE_BASE[i]; });
     renderAll();
   });
 
   /* ============================================================
      Genset spending — Weichai TAM (capex × genset share)
      ============================================================ */
-  // Chinese Big-4 capex (T3a) — reference midpoints, used to split Tier 3.
+  // Chinese Big-4 capex (T3a) — reference midpoints.
   const CHINA_REF = { '2024': 40, '2025': 50, '2026e': 70, '2027e': 84 };
+  // Colo capex (Equinix + Digital Realty, combined, US$bn) — rough, editable basis.
+  const COLO_REF = { '2024': 6, '2025': 8, '2026e': 10, '2027e': 12 };
+
+  // The three cleanly-additive (owned-facility) categories that make up the donut total.
   const GENSET_CATS = [
-    { key: 't1',  name: 'T1 Big-4',               color: '#4C8BF5', pct: 2.5, range: [2,3], capex: (k) => state[0].vals[k] },
-    { key: 't2',  name: 'T2 Oracle/neocloud',     color: '#FF9900', pct: 2.5, range: [2,3], capex: (k) => state[1].vals[k] },
-    { key: 't3a', name: 'T3a China',              color: '#C74FE8', pct: 4.0, range: [3,5], capex: (k) => CHINA_REF[k] },
-    { key: 't3b', name: 'T3b Colo (Equinix/DLR)', color: '#2DD4BF', pct: 6.5, range: [5,8], capex: (k) => Math.max(0, (state[2].vals[k] || 0) - CHINA_REF[k]) },
+    { key: 't1',  name: 'T1 Big-4',           color: '#4C8BF5', pct: 2.5, range: [2,3], capex: (k) => state[0].vals[k] },
+    { key: 't2',  name: 'T2 Oracle/neocloud', color: '#FF9900', pct: 2.5, range: [2,3], capex: (k) => state[1].vals[k] },
+    { key: 't3a', name: 'T3a China',          color: '#C74FE8', pct: 4.0, range: [3,5], capex: (k) => CHINA_REF[k] },
   ];
-  const GENSET_BASE = GENSET_CATS.map(c => c.pct);
+  // Colo = a MEMO, not summed in: its capex overlaps the other tiers (leased capacity =
+  // colo's shell/power capex but the tenant's GPUs), so adding it would double-count.
+  const COLO = { key: 'colo', name: 'Colo (Equinix/DLR)', color: '#2DD4BF', pct: 6.5, range: [5,8], memo: true, capex: (k) => COLO_REF[k] };
+
+  // Editable shares span the additive cats + the colo memo (used by the assumptions UI / reset).
+  const SHARE_CATS = [...GENSET_CATS, COLO];
+  const SHARE_BASE = SHARE_CATS.map(c => c.pct);
 
   const gensetVal = (cat, key) => (cat.capex(key) || 0) * cat.pct / 100;
-  const gensetYearTotal = (key) => GENSET_CATS.reduce((s, c) => s + gensetVal(c, key), 0);
+  const gensetYearTotal = (key) => GENSET_CATS.reduce((s, c) => s + gensetVal(c, key), 0);  // colo excluded
+  const coloMemo = (key) => gensetVal(COLO, key);
 
   function renderGensetAssumptions() {
     const wrap = el('genset-assumptions');
     wrap.innerHTML = '';
-    GENSET_CATS.forEach((c, i) => {
+    SHARE_CATS.forEach((c, i) => {
       const item = document.createElement('div');
       item.className = 'ga-item';
       const lbl = document.createElement('label');
-      lbl.innerHTML = `<span class="ga-dot" style="background:${c.color}"></span>${c.name} genset share`;
+      const tag = c.memo ? ' <span style="color:#2DD4BF">· memo</span>' : '';
+      lbl.innerHTML = `<span class="ga-dot" style="background:${c.color}"></span>${c.name} genset share${tag}`;
       const row = document.createElement('div');
       row.className = 'ga-input-wrap';
       const input = document.createElement('input');
@@ -567,11 +580,11 @@
       input.type = 'number';
       input.step = 'any';
       input.value = c.pct;
-      input.classList.toggle('edited', Number(c.pct) !== Number(GENSET_BASE[i]));
+      input.classList.toggle('edited', Number(c.pct) !== Number(SHARE_BASE[i]));
       input.addEventListener('input', () => {
         const raw = input.value.trim();
         c.pct = raw === '' ? 0 : Number(raw);
-        input.classList.toggle('edited', Number(c.pct) !== Number(GENSET_BASE[i]));
+        input.classList.toggle('edited', Number(c.pct) !== Number(SHARE_BASE[i]));
         renderDonuts(); updateResetState();
       });
       const suffix = document.createElement('span');
@@ -595,6 +608,12 @@
       it.innerHTML = `<span class="gl-sw" style="background:${c.color}"></span>${c.name}`;
       wrap.appendChild(it);
     });
+    // colo shown distinctly — it's a memo, not part of the donut total
+    const memo = document.createElement('div');
+    memo.className = 'gl-item';
+    memo.style.color = 'var(--muted)';
+    memo.innerHTML = `<span class="gl-sw" style="background:transparent;border:1.5px dashed ${COLO.color}"></span>${COLO.name} <span style="color:#2DD4BF">(memo — not in total)</span>`;
+    wrap.appendChild(memo);
   }
 
   function donutArc(cx, cy, r, ir, a0, a1) {
@@ -639,6 +658,14 @@
       yl.className = 'dc-year';
       yl.innerHTML = `${yr.label} <span class="conf-chip" style="background:${yr.color}">${yr.conf}</span>`;
       card.appendChild(yl);
+
+      // colo memo — shown separately, NOT added to the centered total (avoids double-count)
+      const memo = document.createElement('div');
+      memo.className = 'dc-memo';
+      memo.title = `Colo (Equinix/DLR) ≈ ${formatNum(COLO.capex(yr.key))} ${UNITS} capex × ${COLO.pct}% — overlaps other tiers, so shown separately, not summed.`;
+      memo.innerHTML = `<span class="memo-dot"></span>colo memo · +${formatNum(coloMemo(yr.key))}`;
+      card.appendChild(memo);
+
       row.appendChild(card);
     });
   }
