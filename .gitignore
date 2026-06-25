@@ -8,3 +8,6 @@ __pycache__/
 # run logs and OS cruft
 nimbalyst-local/*.log
 .DS_Store
+
+# Nimbalyst editor session artifacts (transcript images, local state)
+.nimbalyst/
