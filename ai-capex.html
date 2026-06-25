@@ -109,6 +109,7 @@
     .tg-dot { width: 12px; height: 12px; border-radius: 3px; align-self: center; }
     .tg-name { font-size: 1rem; color: #f0f0ff; font-weight: 600; }
     .tg-share { font-size: 0.82rem; color: #cfcfe8; }
+    .tg-note { font-size: 0.78rem; color: var(--accent); font-style: italic; }
     .tg-who { font-size: 0.8rem; color: var(--muted); flex-basis: 100%; }
     .player-line { font-size: 0.92rem; color: var(--text); padding: 4px 0 4px 22px; }
     .player-line .pl-desc { color: var(--muted); font-size: 0.85rem; }
@@ -212,6 +213,7 @@
       name: 'Tier 2 — Oracle + neoclouds', short: 'Tier 2', color: '#FF9900',
       access: 'the realistic US wedge',
       who: 'Oracle + the neocloud builders — the next rung down.',
+      note: 'fastest growth, highest volatility — a tiny 2024 base scaling several-fold by 2027e',
       total: { '2024': [10,10], '2025': [35,40], '2026e': [90,100], '2027e': [130,160] },
       players: [
         { name: 'Oracle',    desc: 'OCI GPU clouds; Stargate partner',   vals: { '2024': [7,7], '2025': [21,21], '2026e': [50,50], '2027e': [75,100] } },
@@ -452,6 +454,7 @@
         `<span class="tg-dot" style="background:${t.ref.color}"></span>` +
         `<span class="tg-name">${t.ref.name}</span>` +
         `<span class="tg-share">${fmtBand(shareBand(t.vals))} of global</span>` +
+        (t.ref.note ? `<span class="tg-note">↗ ${t.ref.note}</span>` : '') +
         `<span class="tg-who">${t.ref.who}</span>`;
       group.appendChild(head);
 
