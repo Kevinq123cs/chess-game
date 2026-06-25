@@ -126,6 +126,24 @@
     tr.total-row .total-co { color: var(--muted); font-weight: 500; letter-spacing: 1px; text-transform: uppercase; font-size: 0.8rem; }
 
     .footnote { margin-top: 14px; color: var(--muted); font-size: 0.78rem; letter-spacing: 0.3px; }
+
+    /* ---------- Genset section ---------- */
+    .genset-assumptions { display: flex; flex-wrap: wrap; gap: 22px; margin-bottom: 20px; }
+    .ga-item { display: flex; flex-direction: column; gap: 5px; }
+    .ga-item label { font-size: 0.78rem; color: var(--muted); display: flex; align-items: center; gap: 7px; }
+    .ga-dot { width: 11px; height: 11px; border-radius: 3px; flex: none; }
+    .ga-input-wrap { display: flex; align-items: center; gap: 6px; }
+    .ga-input-wrap .ga-suffix { color: var(--muted); font-size: 0.85rem; }
+    .ga-range { font-size: 0.68rem; color: #5e5e84; }
+
+    .genset-legend { display: flex; flex-wrap: wrap; gap: 20px; margin-bottom: 20px; padding-top: 14px; border-top: 1px solid var(--line); }
+    .gl-item { display: flex; align-items: center; gap: 8px; font-size: 0.86rem; color: #d6d6ef; }
+    .gl-sw { width: 13px; height: 13px; border-radius: 3px; }
+
+    .donut-row { display: flex; flex-wrap: wrap; gap: 16px; justify-content: space-between; }
+    .donut-card { flex: 1 1 200px; min-width: 170px; display: flex; flex-direction: column; align-items: center; gap: 10px; }
+    .donut-card svg { width: 100%; max-width: 210px; }
+    .donut-card .dc-year { font-size: 0.95rem; color: #cfcfe8; letter-spacing: 1px; display: flex; align-items: center; gap: 9px; }
   </style>
 </head>
 <body>
@@ -155,6 +173,15 @@
       <div class="table-sub">Tier totals (bold) drive the chart — click one to override it. Player rows are reference detail. Nothing is saved: reload or Reset restores the baseline.</div>
       <table id="table"></table>
       <div class="footnote">Bars plot the midpoint of each tier's range; hover a segment for the low–high. Player figures shown as reported (ranges, ↑ = rising, etc.).</div>
+    </section>
+
+    <section class="panel">
+      <div class="table-title">Genset spending — Weichai TAM</div>
+      <div class="table-sub">Each year's genset spend = tier capex × genset share. Donut center = that year's total; slices split it by tier-category. Genset shares below are editable assumptions (seeded at the midpoint of each source range).</div>
+      <div class="genset-assumptions" id="genset-assumptions"></div>
+      <div class="genset-legend" id="genset-legend"></div>
+      <div class="donut-row" id="donut-row"></div>
+      <div class="footnote">T3a China = Chinese Big-4 capex; T3b Colo = remaining Tier 3 (sovereign / enterprise / colo). Editing tier totals or shares above re-computes these pies live. Hover a slice for its $ and % of the year's genset total.</div>
     </section>
   </div>
 
@@ -447,7 +474,7 @@
           const raw = input.value.trim();
           state[ti].vals[yr.key] = raw === '' ? 0 : Number(raw);
           markEdited(input, ti, yr.key);
-          renderChart(); renderTotals(); updateResetState();
+          renderChart(); renderTotals(); renderDonuts(); updateResetState();
         });
         td.appendChild(input);
         const r = t.ref.total[yr.key];
@@ -498,13 +525,123 @@
      Reset
      ============================================================ */
   function isDirty() {
-    return state.some((t, ti) => YEARS.some(y => Number(t.vals[y.key]) !== Number(BASELINE[ti][y.key])));
+    const tiersDirty = state.some((t, ti) => YEARS.some(y => Number(t.vals[y.key]) !== Number(BASELINE[ti][y.key])));
+    const gensetDirty = GENSET_CATS.some((c, i) => Number(c.pct) !== Number(GENSET_BASE[i]));
+    return tiersDirty || gensetDirty;
   }
   function updateResetState() { el('reset').disabled = !isDirty(); }
   el('reset').addEventListener('click', () => {
     state = buildState();
+    GENSET_CATS.forEach((c, i) => { c.pct = GENSET_BASE[i]; });
     renderAll();
   });
+
+  /* ============================================================
+     Genset spending — Weichai TAM (capex × genset share)
+     ============================================================ */
+  // Chinese Big-4 capex (T3a) — reference midpoints, used to split Tier 3.
+  const CHINA_REF = { '2024': 40, '2025': 50, '2026e': 70, '2027e': 84 };
+  const GENSET_CATS = [
+    { key: 't1',  name: 'T1 Big-4',               color: '#4C8BF5', pct: 2.5, range: [2,3], capex: (k) => state[0].vals[k] },
+    { key: 't2',  name: 'T2 Oracle/neocloud',     color: '#FF9900', pct: 2.5, range: [2,3], capex: (k) => state[1].vals[k] },
+    { key: 't3a', name: 'T3a China',              color: '#C74FE8', pct: 4.0, range: [3,5], capex: (k) => CHINA_REF[k] },
+    { key: 't3b', name: 'T3b Colo (Equinix/DLR)', color: '#2DD4BF', pct: 6.5, range: [5,8], capex: (k) => Math.max(0, (state[2].vals[k] || 0) - CHINA_REF[k]) },
+  ];
+  const GENSET_BASE = GENSET_CATS.map(c => c.pct);
+
+  const gensetVal = (cat, key) => (cat.capex(key) || 0) * cat.pct / 100;
+  const gensetYearTotal = (key) => GENSET_CATS.reduce((s, c) => s + gensetVal(c, key), 0);
+
+  function renderGensetAssumptions() {
+    const wrap = el('genset-assumptions');
+    wrap.innerHTML = '';
+    GENSET_CATS.forEach((c, i) => {
+      const item = document.createElement('div');
+      item.className = 'ga-item';
+      const lbl = document.createElement('label');
+      lbl.innerHTML = `<span class="ga-dot" style="background:${c.color}"></span>${c.name} genset share`;
+      const row = document.createElement('div');
+      row.className = 'ga-input-wrap';
+      const input = document.createElement('input');
+      input.className = 'cell';
+      input.type = 'number';
+      input.step = 'any';
+      input.value = c.pct;
+      input.classList.toggle('edited', Number(c.pct) !== Number(GENSET_BASE[i]));
+      input.addEventListener('input', () => {
+        const raw = input.value.trim();
+        c.pct = raw === '' ? 0 : Number(raw);
+        input.classList.toggle('edited', Number(c.pct) !== Number(GENSET_BASE[i]));
+        renderDonuts(); updateResetState();
+      });
+      const suffix = document.createElement('span');
+      suffix.className = 'ga-suffix';
+      suffix.textContent = '%';
+      row.appendChild(input); row.appendChild(suffix);
+      const rng = document.createElement('span');
+      rng.className = 'ga-range';
+      rng.textContent = `source ${c.range[0]}–${c.range[1]}%`;
+      item.appendChild(lbl); item.appendChild(row); item.appendChild(rng);
+      wrap.appendChild(item);
+    });
+  }
+
+  function renderGensetLegend() {
+    const wrap = el('genset-legend');
+    wrap.innerHTML = '';
+    GENSET_CATS.forEach(c => {
+      const it = document.createElement('div');
+      it.className = 'gl-item';
+      it.innerHTML = `<span class="gl-sw" style="background:${c.color}"></span>${c.name}`;
+      wrap.appendChild(it);
+    });
+  }
+
+  function donutArc(cx, cy, r, ir, a0, a1) {
+    const large = (a1 - a0) > Math.PI ? 1 : 0;
+    const p = (rad, a) => [cx + rad * Math.cos(a), cy + rad * Math.sin(a)];
+    const [x0, y0] = p(r, a0), [x1, y1] = p(r, a1), [xi1, yi1] = p(ir, a1), [xi0, yi0] = p(ir, a0);
+    return `M${x0} ${y0} A${r} ${r} 0 ${large} 1 ${x1} ${y1} L${xi1} ${yi1} A${ir} ${ir} 0 ${large} 0 ${xi0} ${yi0} Z`;
+  }
+
+  function renderDonuts() {
+    const row = el('donut-row');
+    row.innerHTML = '';
+    YEARS.forEach(yr => {
+      const total = gensetYearTotal(yr.key);
+      const card = document.createElement('div');
+      card.className = 'donut-card';
+
+      const s = document.createElementNS(SVGNS, 'svg');
+      s.setAttribute('viewBox', '0 0 200 200');
+      const cx = 100, cy = 100, r = 84, ir = 52;
+      let a = -Math.PI / 2;
+      if (total > 0) {
+        GENSET_CATS.forEach(c => {
+          const v = gensetVal(c, yr.key);
+          if (v <= 0) return;
+          const a1 = a + (v / total) * 2 * Math.PI;
+          const path = mk('path', {
+            d: donutArc(cx, cy, r, ir, a, a1), fill: c.color,
+            stroke: 'var(--bg)', 'stroke-width': 1.5
+          }, s);
+          mk('title', {}, path).textContent = `${c.name}: ${formatNum(v)} ${UNITS} (${Math.round(v / total * 100)}%)`;
+          a = a1;
+        });
+      } else {
+        mk('circle', { cx, cy, r: (r + ir) / 2, fill: 'none', stroke: '#3a3a5e', 'stroke-width': r - ir, opacity: 0.4 }, s);
+      }
+      mk('text', { x: cx, y: cy - 1, 'text-anchor': 'middle', fill: '#f3f3ff', 'font-size': 26, 'font-weight': 700 }, s).textContent = formatNum(total);
+      mk('text', { x: cx, y: cy + 19, 'text-anchor': 'middle', fill: '#9a9ab8', 'font-size': 11 }, s).textContent = `genset ${UNITS}`;
+      card.appendChild(s);
+
+      const yl = document.createElement('div');
+      yl.className = 'dc-year';
+      yl.innerHTML = `${yr.label} <span class="conf-chip" style="background:${yr.color}">${yr.conf}</span>`;
+      card.appendChild(yl);
+      row.appendChild(card);
+    });
+  }
 
   /* ============================================================
      Boot
@@ -515,6 +652,9 @@
     renderLegend();
     renderConfKey();
     renderTable();
+    renderGensetAssumptions();
+    renderGensetLegend();
+    renderDonuts();
     updateResetState();
   }
   renderAll();
