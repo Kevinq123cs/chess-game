@@ -90,7 +90,8 @@
     .bar { transition: opacity 0.15s; cursor: default; }
     .bar:hover { opacity: 0.82; }
     .ghost { fill: none; stroke-dasharray: 4 3; stroke-width: 1.4; }
-    .val-label { font-size: 11px; font-weight: 600; text-anchor: middle; }
+    .seg-label { font-size: 11px; font-weight: 600; fill: #ffffff; paint-order: stroke; stroke: rgba(0,0,0,0.35); stroke-width: 2px; }
+    .total-label { font-size: 14px; font-weight: 700; fill: #f3f3ff; }
 
     /* Tooltip */
     #tooltip {
@@ -184,7 +185,7 @@
     <header>
       <div class="title-block">
         <h1>AI DATA CENTER CAPEX</h1>
-        <p>Reference vs. your overrides · 2024–2027e</p>
+        <p>Total capex by player · 2024–2027e</p>
       </div>
       <div class="header-tools">
         <span class="units">units: <strong id="units-label">$B</strong></span>
@@ -245,12 +246,16 @@
     return plotTop + plotHeight - (value / maxValue) * plotHeight;
   }
 
+  // total capex for a given year across all players (ignores nulls)
+  function yearTotal(dataset, year) {
+    let sum = 0;
+    dataset.forEach(c => { const v = c.capex[year]; if (typeof v === 'number') sum += v; });
+    return sum;
+  }
+  // tallest stacked bar = largest yearly total
   function maxOf(dataset) {
     let m = 0;
-    dataset.forEach(c => YEARS.forEach(y => {
-      const v = c.capex[y];
-      if (typeof v === 'number' && v > m) m = v;
-    }));
+    YEARS.forEach(y => { const t = yearTotal(dataset, y); if (t > m) m = t; });
     return m;
   }
 
@@ -276,7 +281,8 @@
   }
 
   /* ============================================================
-     renderChart — grouped SVG bar chart
+     renderChart — stacked SVG bar chart
+     One bar per year = total ("global") capex, segmented by player.
      ============================================================ */
   function renderChart(dataset) {
     svg.innerHTML = '';
@@ -304,63 +310,78 @@
     const unitLbl = mk('text', { x: plotLeft - 10, y: plotTop - 8, class: 'axis-label', 'text-anchor': 'end' }, svg);
     unitLbl.textContent = UNITS;
 
-    // ---- Groups per year ----
-    const nGroups = YEARS.length;
-    const groupGap = 26;
-    const groupWidth = (plotWidth - groupGap * (nGroups - 1)) / nGroups;
-    const nBars = dataset.length;
-    const barGap = 6;
-    const barWidth = Math.max(4, (groupWidth - barGap * (nBars - 1)) / nBars);
+    // ---- One stacked bar per year ----
+    const nSlots = YEARS.length;
+    const slotWidth = plotWidth / nSlots;
+    const barWidth = Math.min(130, slotWidth * 0.56);
+    const baselineY = plotTop + plotHeight;
 
     YEARS.forEach((year, gi) => {
-      const gx = plotLeft + gi * (groupWidth + groupGap);
+      const slotX = plotLeft + gi * slotWidth;
+      const x = slotX + (slotWidth - barWidth) / 2;
+      const estimate = isEstimate(year);
+      const total = yearTotal(dataset, year);
 
-      dataset.forEach((co, bi) => {
-        const x = gx + bi * (barWidth + barGap);
-        const v = co.capex[year];
-        const estimate = isEstimate(year);
-
-        if (typeof v !== 'number') {
-          // ghost placeholder: faint outline up to a small token height
-          const gh = 14;
-          mk('rect', {
-            x, y: plotTop + plotHeight - gh, width: barWidth, height: gh,
-            rx: 3, class: 'bar ghost', stroke: co.color, opacity: 0.5
-          }, svg);
-          return;
-        }
-
-        const y = scaleY(v, axisMax, plotTop, plotHeight);
-        const h = plotTop + plotHeight - y;
-        const rect = mk('rect', {
-          x, y, width: barWidth, height: Math.max(0, h),
-          rx: 3, class: 'bar', fill: co.color
+      if (total <= 0) {
+        // ghost placeholder when the whole year has no data yet
+        const gh = 16;
+        mk('rect', {
+          x, y: baselineY - gh, width: barWidth, height: gh,
+          rx: 3, class: 'bar ghost', stroke: '#6a6aa8', opacity: 0.5
         }, svg);
+      } else {
+        let cumulative = 0;
+        dataset.forEach(co => {
+          const v = co.capex[year];
+          if (typeof v !== 'number' || v <= 0) return;
 
-        if (estimate) {
-          rect.setAttribute('fill-opacity', '0.45');
-          rect.setAttribute('stroke', co.color);
-          rect.setAttribute('stroke-width', '1.5');
-          rect.setAttribute('stroke-dasharray', '4 3');
-        }
+          const segTop = scaleY(cumulative + v, axisMax, plotTop, plotHeight);
+          const segBottom = scaleY(cumulative, axisMax, plotTop, plotHeight);
+          const h = segBottom - segTop;
 
-        // hover tooltip
-        rect.addEventListener('mousemove', (e) => showTip(e, co, year, v));
-        rect.addEventListener('mouseleave', hideTip);
-
-        // value label above bar (only if tall enough to be useful)
-        if (h > 16) {
-          const lbl = mk('text', {
-            x: x + barWidth / 2, y: y - 5,
-            class: 'val-label', fill: estimate ? co.color : '#e8e8ff'
+          const rect = mk('rect', {
+            x, y: segTop, width: barWidth, height: Math.max(0, h),
+            class: 'bar', fill: co.color,
+            stroke: 'var(--bg)', 'stroke-width': 1            // thin divider between players
           }, svg);
-          lbl.textContent = formatNum(v);
+          if (estimate) rect.setAttribute('fill-opacity', '0.5');
+
+          rect.addEventListener('mousemove', (e) => showTip(e, co, year, v, total));
+          rect.addEventListener('mouseleave', hideTip);
+
+          // in-segment value label if the slice is tall enough
+          if (h > 20) {
+            const lbl = mk('text', {
+              x: x + barWidth / 2, y: segTop + h / 2 + 4,
+              class: 'seg-label', 'text-anchor': 'middle'
+            }, svg);
+            lbl.textContent = formatNum(v);
+          }
+          cumulative += v;
+        });
+
+        // dashed outline around the whole bar marks an estimate year
+        if (estimate) {
+          const topY = scaleY(total, axisMax, plotTop, plotHeight);
+          mk('rect', {
+            x, y: topY, width: barWidth, height: baselineY - topY,
+            rx: 2, fill: 'none', stroke: '#cfcfe8',
+            'stroke-width': 1.5, 'stroke-dasharray': '5 3'
+          }, svg);
         }
-      });
+
+        // total label on top of the stack
+        const topY = scaleY(total, axisMax, plotTop, plotHeight);
+        const tot = mk('text', {
+          x: x + barWidth / 2, y: topY - 8,
+          class: 'total-label', 'text-anchor': 'middle'
+        }, svg);
+        tot.textContent = formatNum(total);
+      }
 
       // year label
       const yl = mk('text', {
-        x: gx + groupWidth / 2, y: H - padBottom + 24,
+        x: slotX + slotWidth / 2, y: H - padBottom + 24,
         class: 'year-label', 'text-anchor': 'middle'
       }, svg);
       yl.textContent = year;
@@ -373,14 +394,15 @@
     }, svg);
   }
 
-  function showTip(e, co, year, v) {
+  function showTip(e, co, year, v, total) {
     const wrap = el('chart-wrap').getBoundingClientRect();
     tooltip.style.left = (e.clientX - wrap.left) + 'px';
     tooltip.style.top = (e.clientY - wrap.top) + 'px';
+    const share = total ? Math.round((v / total) * 100) : 0;
     tooltip.innerHTML =
       `<span class="tt-co" style="color:${co.color}">${co.name}</span> ` +
       `<span class="tt-yr">${year}${isEstimate(year) ? ' (est)' : ''}</span><br>` +
-      `${formatNum(v)} ${UNITS}`;
+      `${formatNum(v)} ${UNITS} <span class="tt-yr">· ${share}% of total</span>`;
     tooltip.style.opacity = '1';
   }
   function hideTip() { tooltip.style.opacity = '0'; }
