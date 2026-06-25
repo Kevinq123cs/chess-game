@@ -87,43 +87,30 @@
       letter-spacing: 0.3px; margin-right: 7px; color: #11112a;
     }
 
-    /* ---------- Table ---------- */
+    /* ---------- Section headings (shared) ---------- */
     .table-title { font-size: 1rem; letter-spacing: 1px; color: #e6e6ff; margin-bottom: 4px; }
-    .table-sub { color: var(--muted); font-size: 0.82rem; margin-bottom: 16px; }
-    table { width: 100%; border-collapse: collapse; }
-    th, td { text-align: right; padding: 8px 10px; font-size: 0.9rem; }
-    th { color: var(--muted); font-weight: 500; letter-spacing: 0.5px; border-bottom: 1px solid var(--line); vertical-align: bottom; }
-    th .th-year { color: #cfcfe8; font-size: 0.95rem; }
-    th.co-col, td.co-col { text-align: left; }
+    .table-sub { color: var(--muted); font-size: 0.82rem; margin-bottom: 18px; }
 
-    .conf-badge {
-      display: inline-block; margin-top: 5px; padding: 1px 7px; border-radius: 999px;
-      font-size: 0.68rem; font-weight: 600; color: #11112a; cursor: help;
-    }
-
-    tr.tier-row { background: rgba(255,255,255,0.025); }
-    tr.tier-row td { padding-top: 13px; padding-bottom: 13px; border-top: 1px solid var(--line); }
-    td.tier-name { color: #f0f0ff; font-weight: 600; }
-    .tier-dot { display: inline-block; width: 11px; height: 11px; border-radius: 3px; margin-right: 9px; vertical-align: middle; }
-    .tier-access { display: block; color: var(--muted); font-weight: 400; font-size: 0.74rem; margin-left: 20px; margin-top: 2px; }
-
-    tr.player-row td { color: var(--muted); font-size: 0.83rem; padding-top: 5px; padding-bottom: 5px; }
-    td.player-name { padding-left: 30px; }
-    td.player-name::before { content: "·"; margin-right: 8px; color: #5e5e84; }
-
+    /* Editable inputs (genset share assumptions) */
     input.cell {
-      width: 84px; background: var(--panel-2); border: 1px solid transparent; border-radius: 6px;
+      width: 64px; background: var(--panel-2); border: 1px solid transparent; border-radius: 6px;
       color: var(--text); font-size: 0.9rem; text-align: right; padding: 6px 9px; font-family: inherit;
       transition: border-color 0.12s, background 0.12s;
     }
-    input.cell::placeholder { color: #5e5e84; }
     input.cell:hover { border-color: var(--line); }
     input.cell:focus { outline: none; border-color: #6a6aa8; background: #2c2c54; }
     input.cell.edited { border-color: var(--accent); color: #ffd9a0; background: rgba(255,180,84,0.08); }
-    .range-hint { display: block; font-size: 0.68rem; color: #5e5e84; margin-top: 3px; text-align: right; }
 
-    tr.total-row td { color: #f0f0ff; font-weight: 700; padding-top: 14px; border-top: 2px solid var(--line); }
-    tr.total-row .total-co { color: var(--muted); font-weight: 500; letter-spacing: 1px; text-transform: uppercase; font-size: 0.8rem; }
+    /* ---------- Player rundown ---------- */
+    .tier-group { margin-bottom: 20px; }
+    .tier-group:last-child { margin-bottom: 0; }
+    .tg-head { display: flex; align-items: baseline; flex-wrap: wrap; gap: 8px 12px; padding-bottom: 9px; margin-bottom: 9px; border-bottom: 1px solid var(--line); }
+    .tg-dot { width: 12px; height: 12px; border-radius: 3px; align-self: center; }
+    .tg-name { font-size: 1rem; color: #f0f0ff; font-weight: 600; }
+    .tg-share { font-size: 0.82rem; color: #cfcfe8; }
+    .tg-who { font-size: 0.8rem; color: var(--muted); flex-basis: 100%; }
+    .player-line { font-size: 0.92rem; color: var(--text); padding: 4px 0 4px 22px; }
+    .player-line .pl-desc { color: var(--muted); font-size: 0.85rem; }
 
     .footnote { margin-top: 14px; color: var(--muted); font-size: 0.78rem; letter-spacing: 0.3px; }
 
@@ -171,10 +158,9 @@
     </section>
 
     <section class="panel">
-      <div class="table-title">Data &amp; overrides</div>
-      <div class="table-sub">Tier totals (bold) drive the chart — click one to override it. Player rows are reference detail. Nothing is saved: reload or Reset restores the baseline.</div>
-      <table id="table"></table>
-      <div class="footnote">Bars plot the midpoint of each tier's range; hover a segment for the low–high. Player figures shown as reported (ranges, ↑ = rising, etc.).</div>
+      <div class="table-title">Who's who — players by tier</div>
+      <div class="table-sub">Each player's rough share of global AI capex (low–high across 2024–2027e), grouped by tier.</div>
+      <div id="tier-rundown"></div>
     </section>
 
     <section class="panel">
@@ -212,33 +198,36 @@
     {
       name: 'Tier 1 — Big-4', short: 'Tier 1', color: '#4C8BF5',
       access: 'biggest pool · worst access',
+      who: 'Mega-cap US hyperscalers — defined by sheer spend.',
       total: { '2024': [251,251], '2025': [380,410], '2026e': [650,725], '2027e': [800,1000] },
       players: [
-        { name: 'Amazon',    vals: { '2024': [78,78], '2025': [100,118], '2026e': [200,200], '2027e': '↑' } },
-        { name: 'Microsoft', vals: { '2024': [76,76], '2025': [90,90],   '2026e': [140,190], '2027e': '↑' } },
-        { name: 'Alphabet',  vals: { '2024': [53,53], '2025': [91,91],   '2026e': [175,190], '2027e': '“significantly higher”' } },
-        { name: 'Meta',      vals: { '2024': [39,39], '2025': [72,72],   '2026e': [115,145], '2027e': '↑' } },
+        { name: 'Amazon',    desc: 'AWS; biggest single AI/cloud capex budget', vals: { '2024': [78,78], '2025': [100,118], '2026e': [200,200], '2027e': '↑' } },
+        { name: 'Microsoft', desc: 'Azure + OpenAI buildout',                   vals: { '2024': [76,76], '2025': [90,90],   '2026e': [140,190], '2027e': '↑' } },
+        { name: 'Alphabet',  desc: 'Google Cloud, TPU + DeepMind infra',        vals: { '2024': [53,53], '2025': [91,91],   '2026e': [175,190], '2027e': '“significantly higher”' } },
+        { name: 'Meta',      desc: 'owned AI infra for ads + Llama',            vals: { '2024': [39,39], '2025': [72,72],   '2026e': [115,145], '2027e': '↑' } },
       ],
     },
     {
       name: 'Tier 2 — Oracle + neoclouds', short: 'Tier 2', color: '#FF9900',
       access: 'the realistic US wedge',
+      who: 'Oracle + the neocloud builders — the next rung down.',
       total: { '2024': [10,10], '2025': [35,40], '2026e': [90,100], '2027e': [130,160] },
       players: [
-        { name: 'Oracle',    vals: { '2024': [7,7], '2025': [21,21], '2026e': [50,50], '2027e': [75,100] } },
-        { name: 'CoreWeave', vals: { '2024': '<2', '2025': [10,10], '2026e': [30,35], '2027e': '40+' } },
-        { name: 'Other neoclouds (Nebius, Lambda, Crusoe, IREN)',
+        { name: 'Oracle',    desc: 'OCI GPU clouds; Stargate partner',   vals: { '2024': [7,7], '2025': [21,21], '2026e': [50,50], '2027e': [75,100] } },
+        { name: 'CoreWeave', desc: 'pure-play GPU neocloud, fastest riser', vals: { '2024': '<2', '2025': [10,10], '2026e': [30,35], '2027e': '40+' } },
+        { name: 'Other neoclouds', desc: 'Nebius, Lambda, Crusoe, IREN',
                              vals: { '2024': 'small', '2025': [10,10], '2026e': [15,20], '2027e': 'growing' } },
       ],
     },
     {
       name: 'Tier 3 — small-cap / others', short: 'Tier 3', color: '#C74FE8',
       access: 'where Weichai captures full value',
+      who: 'Everything smaller — China hyperscalers, sovereign, enterprise, colo.',
       total: { '2024': [60,60], '2025': [90,110], '2026e': [130,160], '2027e': [160,200] },
       players: [
-        { name: 'Chinese Big-4 (BABA / Tencent / ByteDance / Baidu)',
+        { name: 'Chinese Big-4', desc: 'Alibaba, Tencent, ByteDance, Baidu',
                              vals: { '2024': [40,40], '2025': [50,50], '2026e': [70,70], '2027e': [84,84] } },
-        { name: 'Sovereign + enterprise + colo',
+        { name: 'Sovereign + enterprise + colo', desc: 'gov clouds, on-prem, Equinix/DLR',
                              vals: { '2024': [20,20], '2025': [40,60], '2026e': [60,90], '2027e': 'growing' } },
       ],
     },
@@ -253,19 +242,11 @@
   const tooltip = el('tooltip');
 
   const mid = (r) => (r[0] + r[1]) / 2;
-  const yearByKey = (k) => YEARS.find(y => y.key === k);
 
   function formatNum(v) {
     if (typeof v !== 'number') return '—';
     if (Number.isInteger(v)) return v.toLocaleString();
     return (Math.round(v * 10) / 10).toLocaleString();
-  }
-  // format a reference value that may be a [lo,hi] range, a point, or a string
-  function fmtVal(v) {
-    if (v == null) return '—';
-    if (typeof v === 'string') return v;
-    if (Array.isArray(v)) return v[0] === v[1] ? formatNum(v[0]) : `${formatNum(v[0])}–${formatNum(v[1])}`;
-    return formatNum(v);
   }
 
   // Live, editable state: each tier holds a point value per year (seeded = midpoint).
@@ -276,8 +257,7 @@
       return { ref: t, vals };
     });
   }
-  let state = buildState();
-  const BASELINE = buildState().map(s => ({ ...s.vals }));   // for reset + edited comparison
+  let state = buildState();   // tier capex (baseline; no longer user-editable)
 
   /* ============================================================
      scaling
@@ -436,90 +416,53 @@
   }
 
   /* ============================================================
-     renderTable — editable tier totals + reference player rows
+     renderTierRundown — players grouped by tier, with a rough
+     contribution band (share of global capex, low–high 2024–27e)
      ============================================================ */
-  function renderTable() {
-    const table = el('table');
-    table.innerHTML = '';
-
-    // head
-    const thead = document.createElement('thead');
-    const hrow = document.createElement('tr');
-    hrow.innerHTML = `<th class="co-col">Tier / player</th>` +
-      YEARS.map(y =>
-        `<th><span class="th-year">${y.label}</span><br>` +
-        `<span class="conf-badge" style="background:${y.color}" title="${y.def.replace(/"/g,'&quot;')}">${y.conf}</span></th>`
-      ).join('');
-    thead.appendChild(hrow);
-    table.appendChild(thead);
-
-    const tbody = document.createElement('tbody');
-    state.forEach((t, ti) => {
-      // tier total row (editable, drives chart)
-      const tr = document.createElement('tr');
-      tr.className = 'tier-row';
-      const c0 = document.createElement('td');
-      c0.className = 'co-col tier-name';
-      c0.innerHTML = `<span class="tier-dot" style="background:${t.ref.color}"></span>${t.ref.name}` +
-        `<span class="tier-access">${t.ref.access}</span>`;
-      tr.appendChild(c0);
-
-      YEARS.forEach(yr => {
-        const td = document.createElement('td');
-        const input = document.createElement('input');
-        input.className = 'cell';
-        input.type = 'number';
-        input.step = 'any';
-        input.value = t.vals[yr.key];
-        markEdited(input, ti, yr.key);
-        input.addEventListener('input', () => {
-          const raw = input.value.trim();
-          state[ti].vals[yr.key] = raw === '' ? 0 : Number(raw);
-          markEdited(input, ti, yr.key);
-          renderChart(); renderTotals(); renderDonuts(); updateResetState();
-        });
-        td.appendChild(input);
-        const r = t.ref.total[yr.key];
-        if (r[0] !== r[1]) {
-          const hint = document.createElement('span');
-          hint.className = 'range-hint';
-          hint.textContent = `${formatNum(r[0])}–${formatNum(r[1])}`;
-          td.appendChild(hint);
-        }
-        tr.appendChild(td);
-      });
-      tbody.appendChild(tr);
-
-      // reference player rows
-      t.ref.players.forEach(p => {
-        const pr = document.createElement('tr');
-        pr.className = 'player-row';
-        pr.innerHTML = `<td class="co-col player-name">${p.name}</td>` +
-          YEARS.map(y => `<td>${fmtVal(p.vals[y.key])}</td>`).join('');
-        tbody.appendChild(pr);
-      });
-    });
-    table.appendChild(tbody);
-
-    // grand total
-    const tfoot = document.createElement('tfoot');
-    const trow = document.createElement('tr');
-    trow.className = 'total-row';
-    trow.innerHTML = `<td class="co-col total-co">Global total</td>` +
-      YEARS.map(y => `<td data-total="${y.key}">—</td>`).join('');
-    tfoot.appendChild(trow);
-    table.appendChild(tfoot);
-
-    renderTotals();
-  }
-
-  function markEdited(input, ti, key) {
-    input.classList.toggle('edited', Number(state[ti].vals[key]) !== Number(BASELINE[ti][key]));
-  }
-  function renderTotals() {
+  // [low, high] % share of the global total across the years with numeric data.
+  function shareBand(valsByYear) {
+    const ps = [];
     YEARS.forEach(y => {
-      const cell = document.querySelector(`[data-total="${y.key}"]`);
-      if (cell) cell.textContent = formatNum(yearTotal(y.key));
+      const v = valsByYear[y.key];
+      const m = Array.isArray(v) ? mid(v) : (typeof v === 'number' ? v : null);
+      const g = yearTotal(y.key);
+      if (m != null && g > 0) ps.push(m / g * 100);
+    });
+    return ps.length ? [Math.min(...ps), Math.max(...ps)] : null;
+  }
+  // "20–24%" / "~2%" / "<1%"
+  function fmtPct(p) { return p < 1 ? '<1' : Math.round(p).toString(); }
+  function fmtBand(band) {
+    if (!band) return '—';
+    const [lo, hi] = band;
+    return Math.round(lo) === Math.round(hi) ? `~${fmtPct(hi)}%` : `${fmtPct(lo)}–${fmtPct(hi)}%`;
+  }
+
+  function renderTierRundown() {
+    const wrap = el('tier-rundown');
+    wrap.innerHTML = '';
+    state.forEach(t => {
+      const group = document.createElement('div');
+      group.className = 'tier-group';
+
+      const head = document.createElement('div');
+      head.className = 'tg-head';
+      head.innerHTML =
+        `<span class="tg-dot" style="background:${t.ref.color}"></span>` +
+        `<span class="tg-name">${t.ref.name}</span>` +
+        `<span class="tg-share">${fmtBand(shareBand(t.vals))} of global</span>` +
+        `<span class="tg-who">${t.ref.who}</span>`;
+      group.appendChild(head);
+
+      t.ref.players.forEach(p => {
+        const line = document.createElement('div');
+        line.className = 'player-line';
+        line.innerHTML =
+          `<b style="color:${t.ref.color}">${p.name} (${fmtBand(shareBand(p.vals))})</b>` +
+          (p.desc ? ` <span class="pl-desc">— ${p.desc}</span>` : '');
+        group.appendChild(line);
+      });
+      wrap.appendChild(group);
     });
   }
 
@@ -527,13 +470,11 @@
      Reset
      ============================================================ */
   function isDirty() {
-    const tiersDirty = state.some((t, ti) => YEARS.some(y => Number(t.vals[y.key]) !== Number(BASELINE[ti][y.key])));
-    const gensetDirty = SHARE_CATS.some((c, i) => Number(c.pct) !== Number(SHARE_BASE[i]));
-    return tiersDirty || gensetDirty;
+    // only the genset share assumptions are editable now
+    return SHARE_CATS.some((c, i) => Number(c.pct) !== Number(SHARE_BASE[i]));
   }
   function updateResetState() { el('reset').disabled = !isDirty(); }
   el('reset').addEventListener('click', () => {
-    state = buildState();
     SHARE_CATS.forEach((c, i) => { c.pct = SHARE_BASE[i]; });
     renderAll();
   });
@@ -678,7 +619,7 @@
     renderChart();
     renderLegend();
     renderConfKey();
-    renderTable();
+    renderTierRundown();
     renderGensetAssumptions();
     renderGensetLegend();
     renderDonuts();

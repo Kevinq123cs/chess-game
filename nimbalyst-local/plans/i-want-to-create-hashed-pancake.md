@@ -168,3 +168,88 @@ double-counting.*
    unaffected (depends on `COLO_REF`, not tiers) — confirming the overlap is broken.
 4. Edit the colo share → memo updates, headline total does **not**.
 5. **Reset** → shares + tiers revert; screenshot the genset section inline for review.
+
+---
+
+# Update 2 — Replace "Data & overrides" table with a per-tier player rundown
+
+## Context
+The "Data & overrides" table just restates numbers the bar chart already shows, and the
+tier-override workflow is no longer used — it's bloat. Replace it with a lean, descriptive
+**player rundown**: each player gets a one-line profile and a **rough % contribution band**
+(its share of global capex, low–high across 2024–2027e), kept **grouped by tier** so the
+tier structure stays concrete. No editable numbers remain in this section.
+
+## Approach (single file: `ai-capex.html`)
+
+**1. HTML — swap the panel** (`ai-capex.html:173–178`). Replace the table panel with:
+```html
+<section class="panel">
+  <div class="table-title">Who's who — players by tier</div>
+  <div class="table-sub">Each player with a one-line profile and a rough share of global
+    AI capex (low–high across 2024–2027e). Grouped by tier.</div>
+  <div id="tier-rundown"></div>
+</section>
+```
+
+**2. Data — add editorial copy to `TIERS`** (`ai-capex.html:~ TIERS def`). Add a `who` field
+per tier and a `desc` per player:
+- T1 *Mega-cap US hyperscalers — defined by sheer spend.* — Amazon "AWS; biggest single
+  AI/cloud capex budget" · Microsoft "Azure + OpenAI buildout" · Alphabet "Google Cloud,
+  TPU + DeepMind infra" · Meta "owned AI infra for ads + Llama".
+- T2 *Oracle + the neocloud builders — the next rung down.* — Oracle "OCI GPU clouds;
+  Stargate partner" · CoreWeave "pure-play GPU neocloud, fastest riser" · Other neoclouds
+  "Nebius, Lambda, Crusoe, IREN".
+- T3 *Everything smaller — China, sovereign, enterprise, colo.* — Chinese Big-4 "Alibaba,
+  Tencent, ByteDance, Baidu" · Sovereign+enterprise+colo "gov clouds, on-prem, Equinix/DLR".
+
+**3. JS — new `renderTierRundown()` replaces `renderTable()`.** For each tier: render a
+header (tier name + `who` + the tier's combined share band), then a clean **list** of
+players in the compact inline form **`Amazon (20–24%)`** — bold name + parenthesised
+low–high band, with the one-line `desc` as muted text after a dash (no columns, no
+right-aligned cells). Compute the contribution band from midpoints:
+```js
+function shareBand(valsByYear) {            // valsByYear: player.vals or tier totals
+  const ps = [];
+  YEARS.forEach(y => {
+    const v = valsByYear[y.key];
+    const m = Array.isArray(v) ? (v[0]+v[1])/2 : (typeof v === 'number' ? v : null);
+    const g = yearTotal(y.key);             // reuse existing global-total fn (:~tier stack)
+    if (m != null && g > 0) ps.push(m / g * 100);
+  });
+  return ps.length ? [Math.min(...ps), Math.max(...ps)] : null;   // string cells skipped
+}
+```
+Format: `<1%` when below 1, else whole %, collapse to one number when low≈high. Expected
+bands: T1 ~73–78% (A ~20–24 · MS ~17–24 · GOOG ~16–20 · Meta ~12–14); T2 ~3–12%
+(Oracle ~2–7 · CoreWeave ~2–4 · other ~2); T3 ~15–19% (China ~7–13 · sovereign/colo ~6–9).
+Reuse existing `yearTotal()`.
+
+**4. Remove now-dead code.** Delete `renderTable()` (`:441–514`), `renderTotals()`
+(`:519–524`), `markEdited()` (`:516–518`), the unused `BASELINE` const, and the
+`renderTable();` call in `renderAll()` (`:681` → `renderTierRundown()`). Simplify
+`isDirty()` (`:527`) and the **Reset** handler (`:533`) to genset shares only
+(`SHARE_CATS`/`SHARE_BASE`) since tier totals are no longer editable; keep
+`state = buildState()` for genset's capex reads.
+
+**5. CSS.** Add a small ruleset for the rundown: `.tier-group` header (colored dot + tier
+name + muted `who` + share band), and `.player-line` rendered inline as
+`<b>Amazon (20–24%)</b> — <span muted>desc</span>` — a simple stacked list, NOT a grid
+(this is the readability fix the user asked for). Remove table-only rules
+(`tr.tier-row`, `td.tier-name`, `.tier-dot`, `.tier-access`, `tr.player-row`,
+`td.player-name`, `tr.total-row`, `.range-hint`, `.conf-badge`, bare `table/th/td`).
+**Keep** shared rules: `.table-title`, `.table-sub` (genset panel), `input.cell`
+(genset inputs), `.conf-chip` (chart + donut badges).
+
+## Reuse / touch points
+- Reuse `yearTotal()` (global total per year) and `formatNum()`.
+- Bar chart, genset donuts, and `state`/`TIERS`/`buildState()` are otherwise untouched —
+  genset still reads `state[i].vals`, which stays at baseline (no editing).
+
+## Verification
+1. Reload preview; assert `#table` is gone and `#tier-rundown` renders 3 tier groups with
+   9 player lines; no console errors.
+2. Spot-check bands via `browser_evaluate` (e.g. Amazon ~20–24%, Meta ~12–14%, Oracle ~2–7%).
+3. Confirm bar chart + genset donuts still render and compute (`gensetYearTotal` unchanged
+   at ~8.1/12.8/22.4/29.5); **Reset** still works for genset shares.
+4. Screenshot the new section inline for review.
