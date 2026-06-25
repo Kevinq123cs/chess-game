@@ -3,7 +3,7 @@
 <head>
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1">
-  <title>AI Data Center Capex</title>
+  <title>AI Data Center Capex — by tier</title>
   <style>
     * { box-sizing: border-box; margin: 0; padding: 0; }
 
@@ -24,8 +24,7 @@
       min-height: 100vh;
       padding: 32px 24px 64px;
     }
-
-    #app { max-width: 980px; margin: 0 auto; }
+    #app { max-width: 1040px; margin: 0 auto; }
 
     /* ---------- Header ---------- */
     header {
@@ -35,146 +34,95 @@
       gap: 24px;
       margin-bottom: 28px;
     }
-    .title-block h1 {
-      font-size: 2rem;
-      font-weight: 300;
-      letter-spacing: 4px;
-      color: #f3f3ff;
-    }
-    .title-block p {
-      margin-top: 6px;
-      color: var(--muted);
-      font-size: 0.92rem;
-      letter-spacing: 0.5px;
-    }
-    .header-tools {
-      display: flex;
-      align-items: center;
-      gap: 14px;
-      white-space: nowrap;
-    }
-    .units {
-      color: var(--muted);
-      font-size: 0.85rem;
-      letter-spacing: 0.5px;
-    }
+    .title-block h1 { font-size: 2rem; font-weight: 300; letter-spacing: 4px; color: #f3f3ff; }
+    .title-block p { margin-top: 6px; color: var(--muted); font-size: 0.92rem; letter-spacing: 0.5px; }
+    .header-tools { display: flex; align-items: center; gap: 14px; white-space: nowrap; }
+    .units { color: var(--muted); font-size: 0.85rem; letter-spacing: 0.5px; }
     button#reset {
-      background: var(--panel-2);
-      color: var(--text);
-      border: 1px solid var(--line);
-      border-radius: 8px;
-      padding: 8px 16px;
-      font-size: 0.9rem;
-      letter-spacing: 1px;
-      cursor: pointer;
-      transition: background 0.15s, border-color 0.15s;
+      background: var(--panel-2); color: var(--text); border: 1px solid var(--line);
+      border-radius: 8px; padding: 8px 16px; font-size: 0.9rem; letter-spacing: 1px;
+      cursor: pointer; transition: background 0.15s, border-color 0.15s;
     }
     button#reset:hover { background: #30305a; border-color: #50507e; }
     button#reset:disabled { opacity: 0.4; cursor: default; }
 
     /* ---------- Panels ---------- */
-    .panel {
-      background: var(--panel);
-      border: 1px solid var(--line);
-      border-radius: 14px;
-      padding: 22px 24px;
-      margin-bottom: 24px;
-    }
+    .panel { background: var(--panel); border: 1px solid var(--line); border-radius: 14px; padding: 22px 24px; margin-bottom: 24px; }
 
     /* ---------- Chart ---------- */
     #chart-wrap { position: relative; }
     svg { width: 100%; height: auto; display: block; overflow: visible; }
     .grid-line { stroke: var(--line); stroke-width: 1; }
     .axis-label { fill: var(--muted); font-size: 12px; }
-    .year-label { fill: #cfcfe8; font-size: 14px; letter-spacing: 1px; }
+    .year-label { fill: #cfcfe8; font-size: 15px; letter-spacing: 1px; }
     .bar { transition: opacity 0.15s; cursor: default; }
-    .bar:hover { opacity: 0.82; }
+    .bar:hover { opacity: 0.85; }
     .ghost { fill: none; stroke-dasharray: 4 3; stroke-width: 1.4; }
-    .seg-label { font-size: 11px; font-weight: 600; fill: #ffffff; paint-order: stroke; stroke: rgba(0,0,0,0.35); stroke-width: 2px; }
-    .total-label { font-size: 14px; font-weight: 700; fill: #f3f3ff; }
+    .seg-label { font-size: 13px; font-weight: 600; fill: #ffffff; paint-order: stroke; stroke: rgba(0,0,0,0.30); stroke-width: 2px; }
+    .total-label { font-size: 15px; font-weight: 700; fill: #f3f3ff; }
+    .badge-text { font-size: 11px; font-weight: 600; }
 
     /* Tooltip */
     #tooltip {
-      position: absolute;
-      pointer-events: none;
-      background: #11112a;
-      border: 1px solid #50507e;
-      border-radius: 8px;
-      padding: 7px 11px;
-      font-size: 0.82rem;
-      color: var(--text);
-      white-space: nowrap;
-      transform: translate(-50%, -120%);
-      opacity: 0;
-      transition: opacity 0.1s;
-      z-index: 5;
+      position: absolute; pointer-events: none; background: #11112a; border: 1px solid #50507e;
+      border-radius: 8px; padding: 8px 12px; font-size: 0.82rem; color: var(--text); white-space: nowrap;
+      transform: translate(-50%, -120%); opacity: 0; transition: opacity 0.1s; z-index: 5; line-height: 1.5;
     }
     #tooltip .tt-co { font-weight: 600; }
     #tooltip .tt-yr { color: var(--muted); }
+    #tooltip .tt-range { color: var(--muted); font-size: 0.78rem; }
 
     /* ---------- Legend ---------- */
-    .legend {
-      display: flex;
-      flex-wrap: wrap;
-      gap: 18px;
-      margin-top: 18px;
-      padding-top: 16px;
-      border-top: 1px solid var(--line);
-    }
-    .legend-item { display: flex; align-items: center; gap: 8px; font-size: 0.88rem; color: #d6d6ef; }
-    .swatch { width: 13px; height: 13px; border-radius: 3px; }
-    .legend-note {
-      margin-left: auto;
-      color: var(--muted);
-      font-size: 0.8rem;
-      display: flex;
-      align-items: center;
-      gap: 7px;
-    }
-    .est-chip {
-      display: inline-block;
-      width: 16px; height: 12px;
-      border: 1.4px dashed var(--muted);
-      border-radius: 2px;
-      background: repeating-linear-gradient(45deg, rgba(255,255,255,0.10) 0 3px, transparent 3px 6px);
+    .legend { display: flex; flex-wrap: wrap; gap: 22px; margin-top: 18px; padding-top: 16px; border-top: 1px solid var(--line); }
+    .legend-item { display: flex; align-items: flex-start; gap: 9px; }
+    .swatch { width: 13px; height: 13px; border-radius: 3px; margin-top: 3px; flex: none; }
+    .legend-item .li-name { font-size: 0.9rem; color: #e2e2f5; }
+    .legend-item .li-access { font-size: 0.76rem; color: var(--muted); }
+
+    /* ---------- Confidence key ---------- */
+    .conf-key { margin-top: 16px; padding-top: 14px; border-top: 1px solid var(--line); display: grid; grid-template-columns: 1fr 1fr; gap: 6px 26px; }
+    .conf-key .ck-item { font-size: 0.78rem; color: var(--muted); }
+    .conf-chip {
+      display: inline-block; padding: 1px 8px; border-radius: 999px; font-size: 0.72rem; font-weight: 600;
+      letter-spacing: 0.3px; margin-right: 7px; color: #11112a;
     }
 
     /* ---------- Table ---------- */
-    .table-title {
-      font-size: 1rem;
-      letter-spacing: 1px;
-      color: #e6e6ff;
-      margin-bottom: 4px;
-    }
+    .table-title { font-size: 1rem; letter-spacing: 1px; color: #e6e6ff; margin-bottom: 4px; }
     .table-sub { color: var(--muted); font-size: 0.82rem; margin-bottom: 16px; }
     table { width: 100%; border-collapse: collapse; }
-    th, td { text-align: right; padding: 9px 10px; font-size: 0.92rem; }
-    th { color: var(--muted); font-weight: 500; letter-spacing: 0.5px; border-bottom: 1px solid var(--line); }
+    th, td { text-align: right; padding: 8px 10px; font-size: 0.9rem; }
+    th { color: var(--muted); font-weight: 500; letter-spacing: 0.5px; border-bottom: 1px solid var(--line); vertical-align: bottom; }
+    th .th-year { color: #cfcfe8; font-size: 0.95rem; }
     th.co-col, td.co-col { text-align: left; }
-    td.co-col { color: #d8d8f0; }
-    .co-dot { display: inline-block; width: 10px; height: 10px; border-radius: 3px; margin-right: 9px; vertical-align: middle; }
-    tbody tr { border-bottom: 1px solid #2c2c50; }
-    tbody tr:last-child { border-bottom: none; }
+
+    .conf-badge {
+      display: inline-block; margin-top: 5px; padding: 1px 7px; border-radius: 999px;
+      font-size: 0.68rem; font-weight: 600; color: #11112a; cursor: help;
+    }
+
+    tr.tier-row { background: rgba(255,255,255,0.025); }
+    tr.tier-row td { padding-top: 13px; padding-bottom: 13px; border-top: 1px solid var(--line); }
+    td.tier-name { color: #f0f0ff; font-weight: 600; }
+    .tier-dot { display: inline-block; width: 11px; height: 11px; border-radius: 3px; margin-right: 9px; vertical-align: middle; }
+    .tier-access { display: block; color: var(--muted); font-weight: 400; font-size: 0.74rem; margin-left: 20px; margin-top: 2px; }
+
+    tr.player-row td { color: var(--muted); font-size: 0.83rem; padding-top: 5px; padding-bottom: 5px; }
+    td.player-name { padding-left: 30px; }
+    td.player-name::before { content: "·"; margin-right: 8px; color: #5e5e84; }
 
     input.cell {
-      width: 84px;
-      background: var(--panel-2);
-      border: 1px solid transparent;
-      border-radius: 6px;
-      color: var(--text);
-      font-size: 0.92rem;
-      text-align: right;
-      padding: 6px 9px;
-      font-family: inherit;
+      width: 84px; background: var(--panel-2); border: 1px solid transparent; border-radius: 6px;
+      color: var(--text); font-size: 0.9rem; text-align: right; padding: 6px 9px; font-family: inherit;
       transition: border-color 0.12s, background 0.12s;
     }
     input.cell::placeholder { color: #5e5e84; }
     input.cell:hover { border-color: var(--line); }
     input.cell:focus { outline: none; border-color: #6a6aa8; background: #2c2c54; }
     input.cell.edited { border-color: var(--accent); color: #ffd9a0; background: rgba(255,180,84,0.08); }
+    .range-hint { display: block; font-size: 0.68rem; color: #5e5e84; margin-top: 3px; text-align: right; }
 
-    tr.total-row { border-top: 2px solid var(--line); }
-    tr.total-row td { color: #f0f0ff; font-weight: 600; padding-top: 13px; }
+    tr.total-row td { color: #f0f0ff; font-weight: 700; padding-top: 14px; border-top: 2px solid var(--line); }
     tr.total-row .total-co { color: var(--muted); font-weight: 500; letter-spacing: 1px; text-transform: uppercase; font-size: 0.8rem; }
 
     .footnote { margin-top: 14px; color: var(--muted); font-size: 0.78rem; letter-spacing: 0.3px; }
@@ -185,7 +133,7 @@
     <header>
       <div class="title-block">
         <h1>AI DATA CENTER CAPEX</h1>
-        <p>Total capex by player · 2024–2027e</p>
+        <p>Global capex by tier · 2024–2027e · calendar-year, US$bn</p>
       </div>
       <div class="header-tools">
         <span class="units">units: <strong id="units-label">$B</strong></span>
@@ -195,84 +143,135 @@
 
     <section class="panel">
       <div id="chart-wrap">
-        <svg id="chart" viewBox="0 0 900 380" preserveAspectRatio="xMidYMid meet" role="img" aria-label="Grouped bar chart of AI data center capex by company and year"></svg>
+        <svg id="chart" viewBox="0 0 960 440" preserveAspectRatio="xMidYMid meet" role="img" aria-label="Stacked bar chart of AI data center capex by tier and year"></svg>
         <div id="tooltip"></div>
       </div>
       <div class="legend" id="legend"></div>
+      <div class="conf-key" id="conf-key"></div>
     </section>
 
     <section class="panel">
       <div class="table-title">Data &amp; overrides</div>
-      <div class="table-sub">Click any cell to override a number. Edited cells are highlighted; nothing is saved — reload or Reset restores the reference baseline.</div>
+      <div class="table-sub">Tier totals (bold) drive the chart — click one to override it. Player rows are reference detail. Nothing is saved: reload or Reset restores the baseline.</div>
       <table id="table"></table>
-      <div class="footnote">2027e = estimate. Values in US$ billions.</div>
+      <div class="footnote">Bars plot the midpoint of each tier's range; hover a segment for the low–high. Player figures shown as reported (ranges, ↑ = rising, etc.).</div>
     </section>
   </div>
 
   <script>
   /* ============================================================
-     DATA — edit these reference numbers to feed the app.
-     Set a year to a number (US$ billions) or leave null for a
-     "ghost" placeholder bar until you have the figure.
-     Add a company = add one entry. That's it.
+     DATA — tier-by-tier AI data center capex (US$bn, calendar year).
+     Tier totals are ranges [low, high]; the chart plots the midpoint.
+     Player rows are reference detail: [low,high] numbers, or a string
+     ('↑', 'growing', '<2', etc.). Edit a tier total to override the bar.
      ============================================================ */
   const UNITS = '$B';
-  const YEARS = ['2024', '2025', '2026', '2027e'];   // any entry ending in 'e' renders as an estimate
-  const REFERENCE = [
-    { name: 'Microsoft', color: '#4C8BF5', capex: { '2024': null, '2025': null, '2026': null, '2027e': null } },
-    { name: 'Alphabet',  color: '#34A853', capex: { '2024': null, '2025': null, '2026': null, '2027e': null } },
-    { name: 'Amazon',    color: '#FF9900', capex: { '2024': null, '2025': null, '2026': null, '2027e': null } },
-    { name: 'Meta',      color: '#C74FE8', capex: { '2024': null, '2025': null, '2026': null, '2027e': null } },
+
+  // Each year carries its confidence level + the definition behind it.
+  const YEARS = [
+    { key: '2024',  label: '2024',  conf: 'actual',  color: '#34A853',
+      def: 'Reported in company 10-Ks / Q4 earnings (SEC filings).' },
+    { key: '2025',  label: '2025',  conf: '~locked', color: '#4C8BF5',
+      def: 'Reported quarters plus early-2025 full-year company guidance.' },
+    { key: '2026e', label: '2026e', conf: 'guided',  color: '#FFB454',
+      def: "Management's own capex budgets from Q4'25 / Q1'26 earnings calls." },
+    { key: '2027e', label: '2027e', conf: 'soft',    color: '#E0556E',
+      def: 'Extrapolation; only Alphabet has guided ("significantly higher").' },
+  ];
+
+  const TIERS = [
+    {
+      name: 'Tier 1 — Big-4', short: 'Tier 1', color: '#4C8BF5',
+      access: 'biggest pool · worst access',
+      total: { '2024': [251,251], '2025': [380,410], '2026e': [650,725], '2027e': [800,1000] },
+      players: [
+        { name: 'Amazon',    vals: { '2024': [78,78], '2025': [100,118], '2026e': [200,200], '2027e': '↑' } },
+        { name: 'Microsoft', vals: { '2024': [76,76], '2025': [90,90],   '2026e': [140,190], '2027e': '↑' } },
+        { name: 'Alphabet',  vals: { '2024': [53,53], '2025': [91,91],   '2026e': [175,190], '2027e': '“significantly higher”' } },
+        { name: 'Meta',      vals: { '2024': [39,39], '2025': [72,72],   '2026e': [115,145], '2027e': '↑' } },
+      ],
+    },
+    {
+      name: 'Tier 2 — Oracle + neoclouds', short: 'Tier 2', color: '#FF9900',
+      access: 'the realistic US wedge',
+      total: { '2024': [10,10], '2025': [35,40], '2026e': [90,100], '2027e': [130,160] },
+      players: [
+        { name: 'Oracle',    vals: { '2024': [7,7], '2025': [21,21], '2026e': [50,50], '2027e': [75,100] } },
+        { name: 'CoreWeave', vals: { '2024': '<2', '2025': [10,10], '2026e': [30,35], '2027e': '40+' } },
+        { name: 'Other neoclouds (Nebius, Lambda, Crusoe, IREN)',
+                             vals: { '2024': 'small', '2025': [10,10], '2026e': [15,20], '2027e': 'growing' } },
+      ],
+    },
+    {
+      name: 'Tier 3 — small-cap / others', short: 'Tier 3', color: '#C74FE8',
+      access: 'where Weichai captures full value',
+      total: { '2024': [60,60], '2025': [90,110], '2026e': [130,160], '2027e': [160,200] },
+      players: [
+        { name: 'Chinese Big-4 (BABA / Tencent / ByteDance / Baidu)',
+                             vals: { '2024': [40,40], '2025': [50,50], '2026e': [70,70], '2027e': [84,84] } },
+        { name: 'Sovereign + enterprise + colo',
+                             vals: { '2024': [20,20], '2025': [40,60], '2026e': [60,90], '2027e': 'growing' } },
+      ],
+    },
   ];
 
   /* ============================================================
-     State helpers
+     Helpers
      ============================================================ */
   const SVGNS = 'http://www.w3.org/2000/svg';
-  const isEstimate = (year) => /e$/i.test(year);
-  const deepCopy = (dataset) => dataset.map(c => ({ ...c, capex: { ...c.capex } }));
-
-  let state = deepCopy(REFERENCE);
-
   const el = (id) => document.getElementById(id);
   const svg = el('chart');
   const tooltip = el('tooltip');
 
-  /* ------------------------------------------------------------
-     scaleY: value -> y pixel, given a chart plot height
-     ------------------------------------------------------------ */
+  const mid = (r) => (r[0] + r[1]) / 2;
+  const yearByKey = (k) => YEARS.find(y => y.key === k);
+
+  function formatNum(v) {
+    if (typeof v !== 'number') return '—';
+    if (Number.isInteger(v)) return v.toLocaleString();
+    return (Math.round(v * 10) / 10).toLocaleString();
+  }
+  // format a reference value that may be a [lo,hi] range, a point, or a string
+  function fmtVal(v) {
+    if (v == null) return '—';
+    if (typeof v === 'string') return v;
+    if (Array.isArray(v)) return v[0] === v[1] ? formatNum(v[0]) : `${formatNum(v[0])}–${formatNum(v[1])}`;
+    return formatNum(v);
+  }
+
+  // Live, editable state: each tier holds a point value per year (seeded = midpoint).
+  function buildState() {
+    return TIERS.map(t => {
+      const vals = {};
+      YEARS.forEach(y => { vals[y.key] = mid(t.total[y.key]); });
+      return { ref: t, vals };
+    });
+  }
+  let state = buildState();
+  const BASELINE = buildState().map(s => ({ ...s.vals }));   // for reset + edited comparison
+
+  /* ============================================================
+     scaling
+     ============================================================ */
   function scaleY(value, maxValue, plotTop, plotHeight) {
     if (!maxValue) return plotTop + plotHeight;
     return plotTop + plotHeight - (value / maxValue) * plotHeight;
   }
-
-  // total capex for a given year across all players (ignores nulls)
-  function yearTotal(dataset, year) {
-    let sum = 0;
-    dataset.forEach(c => { const v = c.capex[year]; if (typeof v === 'number') sum += v; });
-    return sum;
+  function yearTotal(year) {
+    return state.reduce((s, t) => s + (t.vals[year] || 0), 0);
   }
-  // tallest stacked bar = largest yearly total
-  function maxOf(dataset) {
+  function maxOf() {
     let m = 0;
-    YEARS.forEach(y => { const t = yearTotal(dataset, y); if (t > m) m = t; });
+    YEARS.forEach(y => { const t = yearTotal(y.key); if (t > m) m = t; });
     return m;
   }
-
-  // "nice" axis max: round up to a clean step so gridlines read well
   function niceMax(raw) {
-    if (raw <= 0) return 100;             // sensible default for empty/ghost state
+    if (raw <= 0) return 100;
     const pow = Math.pow(10, Math.floor(Math.log10(raw)));
-    const steps = [1, 2, 2.5, 5, 10];
-    for (const s of steps) {
-      if (raw <= s * pow) return s * pow;
-    }
+    const steps = [1, 1.5, 2, 2.5, 5, 10];
+    for (const s of steps) { if (raw <= s * pow) return s * pow; }
     return 10 * pow;
   }
-
-  /* ------------------------------------------------------------
-     mkSVG helper
-     ------------------------------------------------------------ */
   function mk(tag, attrs, parent) {
     const node = document.createElementNS(SVGNS, tag);
     for (const k in attrs) node.setAttribute(k, attrs[k]);
@@ -281,23 +280,19 @@
   }
 
   /* ============================================================
-     renderChart — stacked SVG bar chart
-     One bar per year = total ("global") capex, segmented by player.
+     renderChart — one stacked bar per year, segmented by tier
      ============================================================ */
-  function renderChart(dataset) {
+  function renderChart() {
     svg.innerHTML = '';
+    const W = 960, H = 440;
+    const padLeft = 60, padRight = 16, padTop = 28, padBottom = 78;
+    const plotTop = padTop, plotHeight = H - padTop - padBottom;
+    const plotLeft = padLeft, plotWidth = W - padLeft - padRight;
 
-    const W = 900, H = 380;
-    const padLeft = 56, padRight = 16, padTop = 24, padBottom = 56;
-    const plotTop = padTop;
-    const plotHeight = H - padTop - padBottom;
-    const plotLeft = padLeft;
-    const plotWidth = W - padLeft - padRight;
+    const axisMax = niceMax(maxOf());
+    const baselineY = plotTop + plotHeight;
 
-    const dataMax = maxOf(dataset);
-    const axisMax = niceMax(dataMax);
-
-    // ---- Y gridlines + labels ----
+    // Y gridlines + labels
     const ticks = 5;
     for (let i = 0; i <= ticks; i++) {
       const v = (axisMax / ticks) * i;
@@ -306,210 +301,196 @@
       const t = mk('text', { x: plotLeft - 10, y: y + 4, class: 'axis-label', 'text-anchor': 'end' }, svg);
       t.textContent = formatNum(v);
     }
-    // axis unit
-    const unitLbl = mk('text', { x: plotLeft - 10, y: plotTop - 8, class: 'axis-label', 'text-anchor': 'end' }, svg);
-    unitLbl.textContent = UNITS;
+    mk('text', { x: plotLeft - 10, y: plotTop - 10, class: 'axis-label', 'text-anchor': 'end' }, svg).textContent = UNITS;
 
-    // ---- One stacked bar per year ----
     const nSlots = YEARS.length;
     const slotWidth = plotWidth / nSlots;
-    const barWidth = Math.min(130, slotWidth * 0.56);
-    const baselineY = plotTop + plotHeight;
+    const barWidth = Math.min(150, slotWidth * 0.58);
 
-    YEARS.forEach((year, gi) => {
+    YEARS.forEach((yr, gi) => {
       const slotX = plotLeft + gi * slotWidth;
       const x = slotX + (slotWidth - barWidth) / 2;
-      const estimate = isEstimate(year);
-      const total = yearTotal(dataset, year);
+      const total = yearTotal(yr.key);
 
-      if (total <= 0) {
-        // ghost placeholder when the whole year has no data yet
-        const gh = 16;
-        mk('rect', {
-          x, y: baselineY - gh, width: barWidth, height: gh,
-          rx: 3, class: 'bar ghost', stroke: '#6a6aa8', opacity: 0.5
+      // stacked tier segments
+      let cumulative = 0;
+      state.forEach(t => {
+        const v = t.vals[yr.key];
+        if (!(v > 0)) return;
+        const segTop = scaleY(cumulative + v, axisMax, plotTop, plotHeight);
+        const segBottom = scaleY(cumulative, axisMax, plotTop, plotHeight);
+        const h = segBottom - segTop;
+        const rect = mk('rect', {
+          x, y: segTop, width: barWidth, height: Math.max(0, h),
+          class: 'bar', fill: t.ref.color, stroke: 'var(--bg)', 'stroke-width': 1
         }, svg);
-      } else {
-        let cumulative = 0;
-        dataset.forEach(co => {
-          const v = co.capex[year];
-          if (typeof v !== 'number' || v <= 0) return;
-
-          const segTop = scaleY(cumulative + v, axisMax, plotTop, plotHeight);
-          const segBottom = scaleY(cumulative, axisMax, plotTop, plotHeight);
-          const h = segBottom - segTop;
-
-          const rect = mk('rect', {
-            x, y: segTop, width: barWidth, height: Math.max(0, h),
-            class: 'bar', fill: co.color,
-            stroke: 'var(--bg)', 'stroke-width': 1            // thin divider between players
-          }, svg);
-          if (estimate) rect.setAttribute('fill-opacity', '0.5');
-
-          rect.addEventListener('mousemove', (e) => showTip(e, co, year, v, total));
-          rect.addEventListener('mouseleave', hideTip);
-
-          // in-segment value label if the slice is tall enough
-          if (h > 20) {
-            const lbl = mk('text', {
-              x: x + barWidth / 2, y: segTop + h / 2 + 4,
-              class: 'seg-label', 'text-anchor': 'middle'
-            }, svg);
-            lbl.textContent = formatNum(v);
-          }
-          cumulative += v;
-        });
-
-        // dashed outline around the whole bar marks an estimate year
-        if (estimate) {
-          const topY = scaleY(total, axisMax, plotTop, plotHeight);
-          mk('rect', {
-            x, y: topY, width: barWidth, height: baselineY - topY,
-            rx: 2, fill: 'none', stroke: '#cfcfe8',
-            'stroke-width': 1.5, 'stroke-dasharray': '5 3'
-          }, svg);
+        rect.addEventListener('mousemove', (e) => showTip(e, t, yr, v, total));
+        rect.addEventListener('mouseleave', hideTip);
+        if (h > 22) {
+          mk('text', { x: x + barWidth / 2, y: segTop + h / 2 + 5, class: 'seg-label', 'text-anchor': 'middle' }, svg)
+            .textContent = formatNum(v);
         }
+        cumulative += v;
+      });
 
-        // total label on top of the stack
+      // total on top
+      if (total > 0) {
         const topY = scaleY(total, axisMax, plotTop, plotHeight);
-        const tot = mk('text', {
-          x: x + barWidth / 2, y: topY - 8,
-          class: 'total-label', 'text-anchor': 'middle'
-        }, svg);
-        tot.textContent = formatNum(total);
+        mk('text', { x: x + barWidth / 2, y: topY - 9, class: 'total-label', 'text-anchor': 'middle' }, svg)
+          .textContent = formatNum(total);
       }
 
       // year label
-      const yl = mk('text', {
-        x: slotX + slotWidth / 2, y: H - padBottom + 24,
-        class: 'year-label', 'text-anchor': 'middle'
-      }, svg);
-      yl.textContent = year;
+      mk('text', { x: slotX + slotWidth / 2, y: H - padBottom + 26, class: 'year-label', 'text-anchor': 'middle' }, svg)
+        .textContent = yr.label;
+
+      // confidence badge under the year
+      drawBadge(slotX + slotWidth / 2, H - padBottom + 40, yr);
     });
 
     // baseline axis
-    mk('line', {
-      x1: plotLeft, y1: plotTop + plotHeight, x2: plotLeft + plotWidth, y2: plotTop + plotHeight,
-      class: 'grid-line', stroke: '#50507e'
-    }, svg);
+    mk('line', { x1: plotLeft, y1: baselineY, x2: plotLeft + plotWidth, y2: baselineY, class: 'grid-line', stroke: '#50507e' }, svg);
   }
 
-  function showTip(e, co, year, v, total) {
+  function drawBadge(cx, top, yr) {
+    const text = yr.conf;
+    const w = text.length * 7 + 18, h = 20;
+    const g = mk('g', {}, svg);
+    g.style.cursor = 'help';
+    mk('rect', { x: cx - w / 2, y: top, width: w, height: h, rx: 10, fill: yr.color }, g);
+    const t = mk('text', { x: cx, y: top + 14, class: 'badge-text', 'text-anchor': 'middle', fill: '#11112a' }, g);
+    t.textContent = text;
+    // native hover definition
+    mk('title', {}, g).textContent = `${yr.label} (${yr.conf}): ${yr.def}`;
+  }
+
+  function showTip(e, t, yr, v, total) {
     const wrap = el('chart-wrap').getBoundingClientRect();
     tooltip.style.left = (e.clientX - wrap.left) + 'px';
     tooltip.style.top = (e.clientY - wrap.top) + 'px';
     const share = total ? Math.round((v / total) * 100) : 0;
+    const r = t.ref.total[yr.key];
+    const rangeStr = r[0] === r[1] ? '' : `<br><span class="tt-range">range ${formatNum(r[0])}–${formatNum(r[1])}</span>`;
     tooltip.innerHTML =
-      `<span class="tt-co" style="color:${co.color}">${co.name}</span> ` +
-      `<span class="tt-yr">${year}${isEstimate(year) ? ' (est)' : ''}</span><br>` +
-      `${formatNum(v)} ${UNITS} <span class="tt-yr">· ${share}% of total</span>`;
+      `<span class="tt-co" style="color:${t.ref.color}">${t.ref.name}</span> ` +
+      `<span class="tt-yr">${yr.label} · ${yr.conf}</span><br>` +
+      `${formatNum(v)} ${UNITS} <span class="tt-yr">· ${share}% of total</span>` + rangeStr;
     tooltip.style.opacity = '1';
   }
   function hideTip() { tooltip.style.opacity = '0'; }
 
-  function formatNum(v) {
-    if (typeof v !== 'number') return '—';
-    if (Number.isInteger(v)) return v.toString();
-    return (Math.round(v * 10) / 10).toString();
-  }
-
   /* ============================================================
-     renderLegend
+     renderLegend — tiers with their access framing
      ============================================================ */
-  function renderLegend(dataset) {
+  function renderLegend() {
     const legend = el('legend');
     legend.innerHTML = '';
-    dataset.forEach(co => {
+    state.forEach(t => {
       const item = document.createElement('div');
       item.className = 'legend-item';
-      item.innerHTML = `<span class="swatch" style="background:${co.color}"></span>${co.name}`;
+      item.innerHTML =
+        `<span class="swatch" style="background:${t.ref.color}"></span>` +
+        `<span><span class="li-name">${t.ref.name}</span><br><span class="li-access">${t.ref.access}</span></span>`;
       legend.appendChild(item);
     });
-    const note = document.createElement('div');
-    note.className = 'legend-note';
-    note.innerHTML = `<span class="est-chip"></span> 2027e = estimate`;
-    legend.appendChild(note);
+  }
+
+  function renderConfKey() {
+    const key = el('conf-key');
+    key.innerHTML = '';
+    YEARS.forEach(yr => {
+      const item = document.createElement('div');
+      item.className = 'ck-item';
+      item.innerHTML = `<span class="conf-chip" style="background:${yr.color}">${yr.conf}</span>${yr.label} — ${yr.def}`;
+      key.appendChild(item);
+    });
   }
 
   /* ============================================================
-     renderTable — editable inputs + computed Total row
+     renderTable — editable tier totals + reference player rows
      ============================================================ */
-  function renderTable(dataset) {
+  function renderTable() {
     const table = el('table');
     table.innerHTML = '';
 
     // head
     const thead = document.createElement('thead');
     const hrow = document.createElement('tr');
-    hrow.innerHTML = `<th class="co-col">Company</th>` +
-      YEARS.map(y => `<th>${y}</th>`).join('');
+    hrow.innerHTML = `<th class="co-col">Tier / player</th>` +
+      YEARS.map(y =>
+        `<th><span class="th-year">${y.label}</span><br>` +
+        `<span class="conf-badge" style="background:${y.color}" title="${y.def.replace(/"/g,'&quot;')}">${y.conf}</span></th>`
+      ).join('');
     thead.appendChild(hrow);
     table.appendChild(thead);
 
-    // body
     const tbody = document.createElement('tbody');
-    dataset.forEach((co, ci) => {
+    state.forEach((t, ti) => {
+      // tier total row (editable, drives chart)
       const tr = document.createElement('tr');
-      const cell0 = document.createElement('td');
-      cell0.className = 'co-col';
-      cell0.innerHTML = `<span class="co-dot" style="background:${co.color}"></span>${co.name}`;
-      tr.appendChild(cell0);
+      tr.className = 'tier-row';
+      const c0 = document.createElement('td');
+      c0.className = 'co-col tier-name';
+      c0.innerHTML = `<span class="tier-dot" style="background:${t.ref.color}"></span>${t.ref.name}` +
+        `<span class="tier-access">${t.ref.access}</span>`;
+      tr.appendChild(c0);
 
-      YEARS.forEach(year => {
+      YEARS.forEach(yr => {
         const td = document.createElement('td');
         const input = document.createElement('input');
         input.className = 'cell';
         input.type = 'number';
         input.step = 'any';
-        input.placeholder = '—';
-        const v = co.capex[year];
-        input.value = (typeof v === 'number') ? v : '';
-        markEdited(input, ci, year);
-
+        input.value = t.vals[yr.key];
+        markEdited(input, ti, yr.key);
         input.addEventListener('input', () => {
           const raw = input.value.trim();
-          state[ci].capex[year] = raw === '' ? null : Number(raw);
-          markEdited(input, ci, year);
-          renderChart(state);
-          renderTotals(state);
-          updateResetState();
+          state[ti].vals[yr.key] = raw === '' ? 0 : Number(raw);
+          markEdited(input, ti, yr.key);
+          renderChart(); renderTotals(); updateResetState();
         });
-
         td.appendChild(input);
+        const r = t.ref.total[yr.key];
+        if (r[0] !== r[1]) {
+          const hint = document.createElement('span');
+          hint.className = 'range-hint';
+          hint.textContent = `${formatNum(r[0])}–${formatNum(r[1])}`;
+          td.appendChild(hint);
+        }
         tr.appendChild(td);
       });
       tbody.appendChild(tr);
+
+      // reference player rows
+      t.ref.players.forEach(p => {
+        const pr = document.createElement('tr');
+        pr.className = 'player-row';
+        pr.innerHTML = `<td class="co-col player-name">${p.name}</td>` +
+          YEARS.map(y => `<td>${fmtVal(p.vals[y.key])}</td>`).join('');
+        tbody.appendChild(pr);
+      });
     });
     table.appendChild(tbody);
 
-    // total row
+    // grand total
     const tfoot = document.createElement('tfoot');
     const trow = document.createElement('tr');
     trow.className = 'total-row';
-    trow.innerHTML = `<td class="co-col total-co">Total</td>` +
-      YEARS.map(y => `<td data-total="${y}">—</td>`).join('');
+    trow.innerHTML = `<td class="co-col total-co">Global total</td>` +
+      YEARS.map(y => `<td data-total="${y.key}">—</td>`).join('');
     tfoot.appendChild(trow);
     table.appendChild(tfoot);
 
-    renderTotals(dataset);
+    renderTotals();
   }
 
-  function markEdited(input, ci, year) {
-    const ref = REFERENCE[ci].capex[year];
-    const cur = state[ci].capex[year];
-    const differs = (ref === null ? cur !== null : cur !== ref);
-    input.classList.toggle('edited', differs);
+  function markEdited(input, ti, key) {
+    input.classList.toggle('edited', Number(state[ti].vals[key]) !== Number(BASELINE[ti][key]));
   }
-
-  function renderTotals(dataset) {
-    YEARS.forEach(year => {
-      let sum = 0, any = false;
-      dataset.forEach(co => {
-        const v = co.capex[year];
-        if (typeof v === 'number') { sum += v; any = true; }
-      });
-      const cell = document.querySelector(`[data-total="${year}"]`);
-      if (cell) cell.textContent = any ? formatNum(sum) : '—';
+  function renderTotals() {
+    YEARS.forEach(y => {
+      const cell = document.querySelector(`[data-total="${y.key}"]`);
+      if (cell) cell.textContent = formatNum(yearTotal(y.key));
     });
   }
 
@@ -517,17 +498,11 @@
      Reset
      ============================================================ */
   function isDirty() {
-    return state.some((co, ci) =>
-      YEARS.some(y => {
-        const ref = REFERENCE[ci].capex[y];
-        return (ref === null ? co.capex[y] !== null : co.capex[y] !== ref);
-      })
-    );
+    return state.some((t, ti) => YEARS.some(y => Number(t.vals[y.key]) !== Number(BASELINE[ti][y.key])));
   }
   function updateResetState() { el('reset').disabled = !isDirty(); }
-
   el('reset').addEventListener('click', () => {
-    state = deepCopy(REFERENCE);
+    state = buildState();
     renderAll();
   });
 
@@ -536,12 +511,12 @@
      ============================================================ */
   function renderAll() {
     el('units-label').textContent = UNITS;
-    renderChart(state);
-    renderLegend(state);
-    renderTable(state);
+    renderChart();
+    renderLegend();
+    renderConfKey();
+    renderTable();
     updateResetState();
   }
-
   renderAll();
   </script>
 </body>
