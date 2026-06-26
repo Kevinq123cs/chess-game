@@ -1,3 +1,93 @@
+# Update 4 — Add genset methodology section + re-base the donut % on concrete, cited data
+
+## Context
+The user asked to add a short section **above the genset donuts** explaining the logic
+behind the genset numbers — the two ways to size genset spend — and to **verify the
+percentages** against that logic. Verification (done in plan mode, full read of
+`ai-capex.html`) found the current shares are **~2.4× too high**:
+
+- App today: blended ~2.5% intensity → **2026e genset ≈ $22.4B**
+  (T1 687.5×2.5% + T2 95×2.5% + China 70×4%).
+- **Top-down** (genset = AIDC capex × intensity): 1% × $927.5B 2026 capex ≈ **$9.3B**.
+- **Published generator market** (concrete): **~$10.3B** in 2026.
+- **Bottom-up** (GW × backup × $/MW): ~10 GW/yr new build × ~$1B/GW ≈ **~$10B**.
+
+All three independent methods land near **~1%**, ~2.4× below the app's 2.5%. Root cause:
+"genset" (diesel generators only ≈ 1% of capex) was modeled at the broader
+**backup-power** envelope (gensets + UPS + switchgear ≈ 2–5%). User decision: **revise to
+the concrete data**, prefer published figures over derived ratios, and **cite everything**;
+where a number must be derived, base it on reputable sources and cite them.
+
+### Concrete published anchors (to hard-code as cited constants)
+- **Data-center generator market** (global, all-DC): 2024 ≈ $8.4–10B · 2025 ≈ $9.5B ·
+  2026 ≈ $10.3B · 2030 ≈ $13–13.8B.
+  - [Fortune Business Insights](https://www.fortunebusinessinsights.com/data-center-generator-market-114458) — 2025 $9.54B → 2026 $10.34B, 8.4% CAGR (primary series; 2024 ≈ $8.8B and 2027e ≈ $11.2B by its CAGR).
+  - [Grand View Research](https://www.grandviewresearch.com/industry-analysis/data-center-generators-market) — $12.98B by 2030 (cross-check).
+  - [GlobeNewswire / Arizton](https://www.globenewswire.com/news-release/2025/11/05/3181605/28124/en/) — ~$10B 2024 → $13.8B 2030 (cross-check).
+- **Genset $/MW & install base** (bottom-up inputs): Cummins ~$350/kW for mission-critical
+  packages ([secondwatt cost guide](https://secondwatt.com/resources/data-center-generators-2026-capacity-cost-speed-to-power)); installed genset base 20 GW (2018) → 55 GW (2024) ([Latitude Media](https://www.latitudemedia.com/news/the-data-center-boom-is-a-diesel-generator-boom/)).
+- **Derived intensity** (cite as derived): generator market ÷ AIDC capex = $10.34B ÷
+  $927.5B ≈ **1.1%**. The ~1% intensity and ~1–2× backup ratio are rule-of-thumb derived
+  from the cited inputs, not single citations — state this caveat in-app.
+
+## Approach (single file: `ai-capex.html`)
+
+**1. Re-base the genset shares to ~1% (concrete-anchored).** In `GENSET_CATS`
+(`ai-capex.html:496–500`) drop the inflated per-tier shares to a **uniform ~1.0%**
+(T1, T2, T3a China all `pct: 1.0`, `range: [0.8, 1.2]`). Rationale to encode in the
+comment: no source publishes *per-tier* genset intensity, so per-tier differentiation was
+unsupported derivation — a single generator-intensity (generator market ÷ total capex ≈
+1%) is the concrete-defensible choice, and the donut **slices** then reflect each tier's
+capex share (a derived split from already-cited capex). Update `GENSET_BASE` (`:501`)
+follows automatically. New AI-attributable donut totals ≈ **3.0 / 4.8 / 8.5 / 11.3 $B**
+(2024→2027e) — AI rising from ~⅓ of the all-DC generator market to ≈ all of it.
+
+**2. New methodology section ABOVE the donuts.** Insert a block between the genset
+sub-header/assumptions and the donut row (after `:170`, before `#genset-legend` or just
+above `#donut-row`). Two compact cards — **Top-down** and **Bottom-up** — each with its
+formula, the one-line "works because…", and inline cited inputs:
+- *Top-down:* `genset $ = AIDC capex × genset-intensity (~1%)`. Works because total capex
+  and the genset market are both published, so one ratio sizes the pie fast. Cites the
+  generator-market sources + capex (tier totals already in-app).
+- *Bottom-up:* `genset $ = capacity (GW) × backup ratio (~1–2×) × $/MW`. Works because it
+  counts hardware once per facility, sidestepping the T1/T2 financing double-count. Cites
+  $/MW (Cummins/secondwatt) + GW/install-base (Latitude Media).
+- A short **honesty caveat** line: the ~1% intensity and ~1–2× backup ratio are derived
+  rules-of-thumb combined from the cited inputs, not single citations.
+Reuse existing card/footnote styling (`.donut-card` spacing, `.footnote`, `.ga-*`); add a
+small `.method-grid` (2-col flex, collapses to 1 col on narrow) + `.method-card` ruleset.
+
+**3. Add a published-market reference + Sources.** Under the donut row, add a one-line
+**reference** comparing the modeled AI-attributable total to the published all-DC generator
+market per year (e.g., "2026e: AI genset ≈ $8.5B of the ~$10.3B all-DC generator market"),
+so the convergence story is explicit. Add a compact **Sources** list (markdown-style links
+rendered as `<a>`s) in/near the footnote citing every figure above.
+
+**4. Update copy.** Genset sub-header (`:170`) gains "sized two ways (top-down & bottom-up),
+both ≈1% of capex — see methods below." Keep the colo-exclusion footnote (`:174`) as-is
+(still correct). Source-range labels in `renderGensetAssumptions` already print `c.range`,
+so they auto-update to `0.8–1.2%`.
+
+## Reuse / touch points
+- Editing interaction is **unchanged**: the three `pct` inputs stay editable and the
+  Reset/`isDirty` logic (`:476–484`) compares to `GENSET_BASE` — only the baseline values
+  change. `renderDonuts`, `gensetVal`, `gensetYearTotal`, `donutArc` untouched.
+- No change to the bar chart, tier rundown, or `TIERS`/`state`.
+- Post-implementation: update `capex-app-purpose` memory (genset intensity is now ~1%,
+  anchored to the published generator market with citations; donut totals ≈ 3/4.8/8.5/11.3).
+
+## Verification
+1. Reload preview (`browser_navigate` + `browser_evaluate`).
+2. Assert `gensetYearTotal` ≈ **3.0 / 4.8 / 8.5 / 11.3**; each donut still 3 slices; the
+   three share inputs read **1** with source range **0.8–1.2%**.
+3. Assert the methodology section renders above `#donut-row` with both formulas + a Sources
+   list of working links; no console errors.
+4. Edit a share (e.g. T1 1→1.2) → donuts + total update, `#genset-reset` enables; **Reset**
+   restores 3.0/4.8/8.5/11.3. Bar chart + rundown unchanged.
+5. Screenshot the genset section inline for review.
+
+---
+
 # Plan: AI Data Center Capex — Interactive Comparison App (Part 1)
 
 ## Context

@@ -129,6 +129,27 @@
     .gl-item { display: flex; align-items: center; gap: 8px; font-size: 0.86rem; color: #d6d6ef; }
     .gl-sw { width: 13px; height: 13px; border-radius: 3px; }
 
+    /* Genset methodology cards */
+    .method-grid { display: flex; flex-wrap: wrap; gap: 16px; margin-bottom: 16px; }
+    .method-card { flex: 1 1 320px; background: var(--panel-2); border: 1px solid var(--line); border-radius: 10px; padding: 14px 16px; }
+    .mc-head { font-size: 0.72rem; letter-spacing: 1.5px; text-transform: uppercase; color: var(--accent); margin-bottom: 8px; }
+    .mc-formula { font-size: 0.92rem; color: #f0f0ff; font-weight: 600; margin-bottom: 7px; line-height: 1.4; }
+    .mc-formula .mc-em { color: var(--muted); font-weight: 400; }
+    .mc-why { font-size: 0.82rem; color: #c4c4e0; line-height: 1.5; margin-bottom: 7px; }
+    .mc-src { font-size: 0.74rem; color: var(--muted); line-height: 1.5; }
+    .method-card a, .footnote.sources a, .gen-ref a { color: #7da9ff; text-decoration: none; }
+    .method-card a:hover, .footnote.sources a:hover { text-decoration: underline; }
+    .mc-src a { margin-left: 1px; }
+    .method-caveat { font-size: 0.76rem; color: var(--muted); font-style: italic; line-height: 1.5; margin-bottom: 20px; padding-left: 2px; }
+
+    /* Convergence reference + sources */
+    .gen-ref { display: flex; flex-wrap: wrap; align-items: center; gap: 8px 16px; margin-top: 16px; padding-top: 14px; border-top: 1px solid var(--line); font-size: 0.78rem; color: #c4c4e0; }
+    .gen-ref .gr-lead { color: var(--muted); }
+    .gen-ref .gr-item b { color: #e6e6ff; font-weight: 600; }
+    .gen-ref .gr-pct { color: var(--accent); }
+    .footnote.sources { display: flex; flex-wrap: wrap; gap: 4px 18px; }
+    .footnote.sources a { display: inline-block; }
+
     .donut-row { display: flex; flex-wrap: wrap; gap: 16px; justify-content: space-between; }
     .donut-card { flex: 1 1 200px; min-width: 170px; display: flex; flex-direction: column; align-items: center; gap: 10px; }
     .donut-card svg { width: 100%; max-width: 210px; }
@@ -167,11 +188,36 @@
         <div class="table-title">Genset spending</div>
         <button id="genset-reset" class="btn-reset" disabled>Reset</button>
       </div>
-      <div class="table-sub">The backup-power (genset) slice of data-center capex = capex × genset share. Donut center = each year's total; slices split it by category. Genset shares below are editable assumptions (midpoints of the source ranges) — tweak to see the pies move.</div>
+      <div class="table-sub">The generator (genset) slice of data-center capex, sized two ways below — top-down and bottom-up — that both land at <b>≈1% of capex</b>. Donut center = each year's AI-attributable total; slices split it by category. The ~1% shares are editable assumptions (source range 0.8–1.2%) — tweak to see the pies move.</div>
+
+      <div class="method-grid">
+        <div class="method-card">
+          <div class="mc-head">Top-down</div>
+          <div class="mc-formula">genset $ = AIDC capex × genset-intensity <span class="mc-em">(~1%)</span></div>
+          <div class="mc-why">Works because total capex and the genset market are both published, so one reliable ratio sizes the whole pie fast.</div>
+          <div class="mc-src">Intensity ≈ generator market ÷ capex: <b>$10.3bn ÷ $927.5bn ≈ 1.1%</b> (2026). Sources <a href="https://www.fortunebusinessinsights.com/data-center-generator-market-114458" target="_blank" rel="noopener">[1]</a><a href="https://www.grandviewresearch.com/industry-analysis/data-center-generators-market" target="_blank" rel="noopener">[2]</a>; capex = tier totals above.</div>
+        </div>
+        <div class="method-card">
+          <div class="mc-head">Bottom-up</div>
+          <div class="mc-formula">genset $ = capacity (GW) × backup ratio <span class="mc-em">(~1–2×)</span> × $/MW</div>
+          <div class="mc-why">Works because it counts physical hardware once per facility, so it sidesteps the T1/T2 financing double-count. ~10 GW/yr new build × ~$1bn/GW ≈ ~$10bn (2026).</div>
+          <div class="mc-src">$/MW ≈ Cummins ~$350/kW mission-critical <a href="https://secondwatt.com/resources/data-center-generators-2026-capacity-cost-speed-to-power" target="_blank" rel="noopener">[3]</a>; install base 20→55 GW (2018→2024) <a href="https://www.latitudemedia.com/news/the-data-center-boom-is-a-diesel-generator-boom/" target="_blank" rel="noopener">[4]</a>.</div>
+        </div>
+      </div>
+      <div class="method-caveat">Honesty note: the ~1% genset-intensity and ~1–2× backup ratio are rules-of-thumb <i>derived</i> by combining the cited inputs (generator market, capex, $/MW, GW), not lifted from any single citation.</div>
+
       <div class="genset-assumptions" id="genset-assumptions"></div>
       <div class="genset-legend" id="genset-legend"></div>
       <div class="donut-row" id="donut-row"></div>
+      <div class="gen-ref" id="gen-ref"></div>
       <div class="footnote">Categories are owner-built capex (T1, T2, T3a China) — additive and clean, since each entity capitalizes what it builds. <b>Colo (Equinix/DLR) is deliberately excluded</b> — it's a landlord whose facilities house the same hyperscaler tenants already in T1/T2, so counting it would double-count. We'd rather under- than over-count. Edit a share to update the pies; <b>Reset</b> restores the originals.</div>
+      <div class="footnote sources"><b>Sources:</b>
+        <a href="https://www.fortunebusinessinsights.com/data-center-generator-market-114458" target="_blank" rel="noopener">[1] Fortune Business Insights — data-center generator market</a>
+        <a href="https://www.grandviewresearch.com/industry-analysis/data-center-generators-market" target="_blank" rel="noopener">[2] Grand View Research — $12.98bn by 2030</a>
+        <a href="https://secondwatt.com/resources/data-center-generators-2026-capacity-cost-speed-to-power" target="_blank" rel="noopener">[3] secondwatt — generator capacity & cost guide</a>
+        <a href="https://www.latitudemedia.com/news/the-data-center-boom-is-a-diesel-generator-boom/" target="_blank" rel="noopener">[4] Latitude Media — install base 20→55 GW</a>
+        <a href="https://www.globenewswire.com/news-release/2025/11/05/3181605/28124/en/" target="_blank" rel="noopener">[5] GlobeNewswire / Arizton — ~$10bn 2024 → $13.8bn 2030</a>
+      </div>
     </section>
   </div>
 
@@ -493,12 +539,25 @@
   // capitalizes what it builds, so these never double-count). Colo is deliberately
   // EXCLUDED: it's a landlord whose facilities house the same hyperscaler tenants
   // already counted in T1/T2, so including it would double-count. Count less, not more.
+  //
+  // Genset intensity = ~1% of capex (uniform across tiers). This is the GENERATOR slice
+  // only (diesel/gas backup), not the broader backup-power envelope (UPS + switchgear).
+  // Anchored to the published data-center generator market: $10.34bn (2026) ÷ $927.5bn
+  // (2026 AIDC capex) ≈ 1.1% — see Fortune Business Insights / Grand View in the Sources
+  // block. No source publishes a *per-tier* genset intensity, so a single rate is the
+  // concrete-defensible choice; the donut slices then reflect each tier's capex share.
   const GENSET_CATS = [
-    { key: 't1',  name: 'T1 Big-4',           color: '#4C8BF5', pct: 2.5, range: [2,3], capex: (k) => state[0].vals[k] },
-    { key: 't2',  name: 'T2 Oracle/neocloud', color: '#FF9900', pct: 2.5, range: [2,3], capex: (k) => state[1].vals[k] },
-    { key: 't3a', name: 'T3a China',          color: '#C74FE8', pct: 4.0, range: [3,5], capex: (k) => CHINA_REF[k] },
+    { key: 't1',  name: 'T1 Big-4',           color: '#4C8BF5', pct: 1.0, range: [0.8,1.2], capex: (k) => state[0].vals[k] },
+    { key: 't2',  name: 'T2 Oracle/neocloud', color: '#FF9900', pct: 1.0, range: [0.8,1.2], capex: (k) => state[1].vals[k] },
+    { key: 't3a', name: 'T3a China',          color: '#C74FE8', pct: 1.0, range: [0.8,1.2], capex: (k) => CHINA_REF[k] },
   ];
   const GENSET_BASE = GENSET_CATS.map(c => c.pct);
+
+  // Published data-center generator market (global, ALL data centers; US$bn). Our modeled
+  // AI-attributable genset (donut totals) is a SUBSET that converges up toward this as AI
+  // comes to dominate new build. Source: Fortune Business Insights (2025 $9.54bn → 2026
+  // $10.34bn, 8.4% CAGR); 2024/2027e are that series' CAGR-implied endpoints.
+  const GEN_MARKET_REF = { '2024': 8.8, '2025': 9.5, '2026e': 10.3, '2027e': 11.2 };
 
   const gensetVal = (cat, key) => (cat.capex(key) || 0) * cat.pct / 100;
   const gensetYearTotal = (key) => GENSET_CATS.reduce((s, c) => s + gensetVal(c, key), 0);
@@ -593,6 +652,22 @@
 
       row.appendChild(card);
     });
+    renderGenRef();
+  }
+
+  // Convergence line: modeled AI-attributable genset vs the published all-DC generator
+  // market — AI rises from a fraction of the market to ≈ the whole of it.
+  function renderGenRef() {
+    const wrap = el('gen-ref');
+    if (!wrap) return;
+    const parts = YEARS.map(yr => {
+      const ai = gensetYearTotal(yr.key);
+      const mkt = GEN_MARKET_REF[yr.key];
+      const pct = mkt ? Math.round(ai / mkt * 100) : 0;
+      const tag = pct >= 98 ? '≈ the whole market' : `${pct}%`;
+      return `<span class="gr-item"><b>${yr.label}</b> AI ≈ $${formatNum(ai)}B of ~$${formatNum(mkt)}B mkt <span class="gr-pct">(${tag})</span></span>`;
+    }).join('');
+    wrap.innerHTML = `<span class="gr-lead">vs. published all-DC generator market:</span> ${parts}`;
   }
 
   /* ============================================================
