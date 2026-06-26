@@ -574,13 +574,14 @@
       row.className = 'ga-input-wrap';
       const input = document.createElement('input');
       input.className = 'cell';
-      input.type = 'number';
-      input.step = 'any';
+      input.type = 'text';
+      input.inputMode = 'decimal';   // numeric keypad on mobile; no spinner arrows
       input.value = c.pct;
       input.classList.toggle('edited', Number(c.pct) !== Number(GENSET_BASE[i]));
       input.addEventListener('input', () => {
         const raw = input.value.trim();
-        c.pct = raw === '' ? 0 : Number(raw);
+        const n = parseFloat(raw);            // tolerate '', '1.', etc. while typing
+        c.pct = (raw === '' || isNaN(n)) ? 0 : n;
         input.classList.toggle('edited', Number(c.pct) !== Number(GENSET_BASE[i]));
         renderDonuts(); updateResetState();
       });
