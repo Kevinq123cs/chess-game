@@ -1,3 +1,49 @@
+# Plan: Finish converting Weichai vault notes → Excalidraw (RESUME)
+
+## Context
+User asked to convert every remaining note in the Obsidian vault folder
+`/Users/kq/Desktop/Econ Learning/real world practical research/Weichai Power - 2338 HK/`
+(7 top-level + 6 `sub-business/`) into its own Excalidraw board, same visual style as the
+two existing boards, and place them in that folder's `excalidraw/` subfolder. The batch was
+interrupted mid-way. This plan finishes it.
+
+## Status
+**Built & verified (in repo root, NOT yet in vault):**
+weichai-power-overview · weichai-legacy-vs-growth-rally · weichai-bull-case-sizing ·
+weichai-aidc-competitive-landscape · weichai-aidc-product-spec · weichai-us-global-strategy ·
+weichai-questions-answers.
+**Already in vault `excalidraw/`:** cat-cmi-genset-sotp · weichai-aidc-capex-landscape.
+
+**Remaining 6 boards to build** (note → file):
+- Powertrain - Engines → weichai-powertrain-engines.excalidraw
+- Power & Energy - New Energy → weichai-power-energy-new-energy.excalidraw
+- Powertrain - Components → weichai-powertrain-components.excalidraw  (small)
+- Commercial Vehicles → weichai-commercial-vehicles.excalidraw  (small)
+- Intelligent Logistics → weichai-intelligent-logistics.excalidraw  (small)
+- Agricultural Equipment → weichai-agricultural-equipment.excalidraw  (tiny)
+
+## Approach (per board)
+Create empty `.excalidraw` in repo root → `excalidraw_add_elements` (color-coded panels:
+grey title/section headers, folded notes inside each content box, generous box heights to
+avoid the linter's auto-grow overflow) → `capture_editor_screenshot` to verify → fix only
+gross overlaps (prefer `clear_all` + re-add over surgical moves; `update_element` newLabel
+does not apply to container-bound text). Match the established palette
+(blue=US/scale, red/orange=competitor, green=Weichai/thesis, yellow=headline, purple=SOFC).
+
+## Final placement (decided: MOVE)
+Move ALL Weichai boards (7 already built + 6 new) from repo root into
+`…/Weichai Power - 2338 HK/excalidraw/`, removing them from the repo root (`mv`). The two
+boards already copied into the vault (cat-cmi-genset-sotp, weichai-aidc-capex-landscape) stay;
+just move the repo-root copy of weichai-aidc-capex-landscape out too (de-dup, overwrite).
+End state: vault `excalidraw/` holds all 13 Weichai boards + cat-cmi-genset-sotp; repo root has
+no `weichai-*.excalidraw` files left.
+
+## Verification
+`ls` the vault `excalidraw/` folder shows all 13 Weichai boards + cat-cmi-genset-sotp; open a
+couple in the Nimbalyst editor to confirm they render.
+
+---
+
 # Plan: CAT vs CMI Genset SOTP Carve-out — Excalidraw Board
 
 ## Context
