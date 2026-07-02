@@ -1,0 +1,794 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Weichai Power — Model Explorer</title>
+<style>
+  .viz-root {
+    --surface-1: #fcfcfb;
+    --page: #f9f9f7;
+    --ink-1: #0b0b0b;
+    --ink-2: #52514e;
+    --ink-3: #898781;
+    --grid: #e1e0d9;
+    --baseline: #c3c2b7;
+    --border: rgba(11,11,11,0.10);
+    --s1: #2a78d6;  /* blue   — MS / primary   */
+    --s2: #1baf7a;  /* aqua   — UBS / secondary */
+    --s3: #eda100;  /* yellow */
+    --s4: #008300;  /* green  */
+    --s5: #4a3aa7;  /* violet */
+    --s6: #e34948;  /* red    */
+    --accent: #2a78d6;
+    --wash: rgba(42,120,214,0.08);
+  }
+  @media (prefers-color-scheme: dark) {
+    .viz-root {
+      --surface-1: #1a1a19;
+      --page: #0d0d0d;
+      --ink-1: #ffffff;
+      --ink-2: #c3c2b7;
+      --ink-3: #898781;
+      --grid: #2c2c2a;
+      --baseline: #383835;
+      --border: rgba(255,255,255,0.10);
+      --s1: #3987e5;
+      --s2: #199e70;
+      --s3: #c98500;
+      --s4: #008300;
+      --s5: #9085e9;
+      --s6: #e66767;
+      --accent: #3987e5;
+      --wash: rgba(57,135,229,0.14);
+    }
+  }
+  * { box-sizing: border-box; margin: 0; }
+  body.viz-root {
+    font-family: system-ui, -apple-system, "Segoe UI", sans-serif;
+    background: var(--page); color: var(--ink-1);
+    font-size: 13px; line-height: 1.45;
+  }
+  header.masthead {
+    padding: 18px 24px 14px;
+    border-bottom: 1px solid var(--border);
+    display: flex; align-items: baseline; gap: 14px; flex-wrap: wrap;
+  }
+  header.masthead h1 { font-size: 19px; font-weight: 650; }
+  header.masthead .ticker { color: var(--ink-2); font-size: 13px; }
+  header.masthead .srcnote { margin-left: auto; color: var(--ink-3); font-size: 12px; }
+
+  .layout { display: flex; min-height: calc(100vh - 60px); }
+
+  /* ---- catalog sidebar ---- */
+  nav.catalog {
+    width: 248px; flex: none; padding: 14px 10px 32px;
+    border-right: 1px solid var(--border); overflow-y: auto;
+  }
+  nav.catalog h2 {
+    font-size: 11px; font-weight: 600; letter-spacing: .06em; text-transform: uppercase;
+    color: var(--ink-3); padding: 12px 10px 4px;
+  }
+  nav.catalog button.item {
+    display: flex; width: 100%; align-items: center; gap: 6px;
+    padding: 5px 10px; border: 0; border-radius: 6px; cursor: pointer;
+    background: transparent; color: var(--ink-2); font: inherit; text-align: left;
+  }
+  nav.catalog button.item:hover { background: var(--wash); }
+  nav.catalog button.item[aria-pressed="true"] { background: var(--wash); color: var(--ink-1); font-weight: 600; }
+  nav.catalog .badges { margin-left: auto; display: flex; gap: 3px; }
+  nav.catalog .badge {
+    font-size: 9px; font-weight: 600; letter-spacing: .03em; color: var(--ink-3);
+    border: 1px solid var(--border); border-radius: 3px; padding: 0 3px;
+  }
+
+  /* ---- main pane ---- */
+  main.pane { flex: 1; min-width: 0; padding: 16px 24px 48px; }
+
+  .filters {
+    display: flex; align-items: center; gap: 16px; flex-wrap: wrap;
+    padding: 0 0 14px;
+  }
+  .filters .group { display: flex; align-items: center; gap: 7px; }
+  .filters label.glabel { color: var(--ink-3); font-size: 12px; }
+  .seg { display: inline-flex; border: 1px solid var(--border); border-radius: 7px; overflow: hidden; background: var(--surface-1); }
+  .seg button {
+    border: 0; background: transparent; color: var(--ink-2); font: inherit; font-size: 12px;
+    padding: 4px 11px; cursor: pointer;
+  }
+  .seg button + button { border-left: 1px solid var(--border); }
+  .seg button[aria-pressed="true"] { background: var(--wash); color: var(--ink-1); font-weight: 600; }
+  .seg button:disabled { opacity: .38; cursor: default; }
+  select.ctl {
+    font: inherit; font-size: 12px; color: var(--ink-1);
+    background: var(--surface-1); border: 1px solid var(--border); border-radius: 7px;
+    padding: 4px 8px; max-width: 210px;
+  }
+
+  .card {
+    background: var(--surface-1); border: 1px solid var(--border); border-radius: 10px;
+    padding: 16px 18px 12px; margin-bottom: 14px;
+  }
+  .card .cardhead { display: flex; align-items: baseline; gap: 10px; flex-wrap: wrap; margin-bottom: 4px; }
+  .card h3 { font-size: 14px; font-weight: 650; }
+  .card h3 .exh { color: var(--ink-3); font-weight: 600; }
+  .card .unit { color: var(--ink-3); font-size: 12px; }
+  .card .legend { margin-left: auto; display: flex; gap: 14px; flex-wrap: wrap; }
+  .legend .key { display: inline-flex; align-items: center; gap: 6px; color: var(--ink-2); font-size: 12px; }
+  .legend .swatch-rect { width: 10px; height: 10px; border-radius: 2px; }
+  .legend .swatch-line { width: 14px; height: 2px; border-radius: 1px; }
+  .card .footnote { color: var(--ink-3); font-size: 11px; padding-top: 8px; }
+  .chartbox { position: relative; }
+  .chartbox svg { display: block; }
+  .chartbox [tabindex]:focus { outline: none; } /* crosshair + tooltip serve as the focus indicator */
+  svg text { font-family: system-ui, -apple-system, "Segoe UI", sans-serif; }
+
+  .tooltip {
+    position: absolute; pointer-events: none; z-index: 5; display: none;
+    background: var(--surface-1); border: 1px solid var(--border); border-radius: 8px;
+    box-shadow: 0 4px 14px rgba(0,0,0,.14); padding: 8px 10px; min-width: 130px;
+  }
+  .tooltip .tt-title { color: var(--ink-3); font-size: 11px; margin-bottom: 4px; }
+  .tooltip .tt-row { display: flex; align-items: center; gap: 7px; padding: 1px 0; }
+  .tooltip .tt-key { width: 12px; height: 2px; border-radius: 1px; flex: none; }
+  .tooltip .tt-name { color: var(--ink-2); font-size: 11px; }
+  .tooltip .tt-val { margin-left: auto; font-weight: 650; font-size: 12px; font-variant-numeric: tabular-nums; padding-left: 10px; }
+
+  table.dataview { border-collapse: collapse; width: 100%; margin-top: 6px; }
+  table.dataview th, table.dataview td {
+    font-size: 12px; padding: 3px 10px; text-align: right;
+    font-variant-numeric: tabular-nums; border-bottom: 1px solid var(--grid);
+  }
+  table.dataview th { color: var(--ink-3); font-weight: 600; }
+  table.dataview td:first-child, table.dataview th:first-child { text-align: left; color: var(--ink-2); }
+  .note-inline { color: var(--ink-3); font-size: 12px; padding: 4px 0 10px; }
+</style>
+</head>
+<body class="viz-root">
+<header class="masthead">
+  <h1>Weichai Power — Model Explorer</h1>
+  <span class="ticker">000338.SZ / 2338.HK · RMB mn unless stated</span>
+  <span class="srcnote">MS model as of 5 May 2026 · UBS model as of 9 Apr 2026 · 2026E onwards are estimates</span>
+</header>
+
+<div class="layout">
+  <nav class="catalog" id="catalog" aria-label="Metric catalog"></nav>
+  <main class="pane">
+    <div class="filters" id="filters"></div>
+    <div id="charts"></div>
+  </main>
+</div>
+
+<div class="tooltip" id="tooltip"></div>
+
+<script id="model-data" type="application/json">{"company": "Weichai Power", "tickers": "000338.SZ / 2338.HK", "unitNote": "RMB mn unless stated", "sources": {"MS": {"name": "Morgan Stanley model", "asOf": "2026-05-05", "years": [2007, 2008, 2009, 2010, 2011, 2012, 2013, 2014, 2015, 2016, 2017, 2018, 2019, 2020, 2021, 2022, 2023, 2024, 2025, 2026, 2027, 2028], "estFrom": 2026}, "UBS": {"name": "UBS model", "asOf": "2026-04-09", "years": [2007, 2008, 2009, 2010, 2011, 2012, 2013, 2014, 2015, 2016, 2017, 2018, 2019, 2020, 2021, 2022, 2023, 2024, 2025, 2026, 2027, 2028, 2029, 2030], "estFrom": 2026}}, "metrics": [{"id": "revenue", "label": "Total revenue", "unit": "rmbmn", "category": "Income Statement", "series": {"MS": [29261.0, 33127.8, 35525.2, 63279.6, 60019.3, 48165.4, 58311.7, 79637.2, 74167.7, 93183.5, 151569.4, 159255.8, 174360.9, 197288.4, 220215.1, 175157.5, 213958.5, 215690.5, 231809.3, 251458.6, 284881.1, 315366.6], "UBS": [29261.0, 33127.8, 35525.2, 63279.6, 60019.3, 48165.4, 58311.7, 79637.2, 74167.7, 93183.5, 151569.4, 159255.8, 174360.9, 197288.4, 220215.1, 175157.5, 213958.5, 215690.5, 231809.3, 250030.3, 266211.8, 287952.2, 312643.5, 338205.2]}}, {"id": "gross_profit", "label": "Gross profit", "unit": "rmbmn", "category": "Income Statement", "series": {"MS": [6908.6, 6698.8, 8657.7, 15575.5, 13212.7, 9390.4, 12023.9, 17018.3, 17104.0, 21083.5, 33101.8, 35569.4, 38007.7, 38309.5, 41781.0, 31146.9, 43521.2, 48385.6, 49781.9, 53748.3, 62514.0, 69534.6], "UBS": [6908.6, 6698.8, 8657.7, 15575.5, 13212.7, 9390.4, 12023.9, 17018.3, 17104.0, 21083.5, 33101.8, 35569.4, 38007.7, 38309.5, 41781.0, 31146.9, 45116.2, 48385.6, 49781.9, 55230.0, 58990.2, 64054.6, 69421.3, 75515.0]}}, {"id": "selling_exp", "label": "Selling expenses", "unit": "rmbmn", "category": "Income Statement", "series": {"MS": [1537.0, 1631.4, 1696.8, 2925.2, 2906.9, 2433.5, 3152.8, 5092.6, 6275.0, 7644.6, 10337.8, 10619.2, 11254.1, 10961.1, 11490.1, 10661.2, 11815.1, 12485.2, 13621.5, 13817.5, 15409.9, 16621.9], "UBS": [1537.0, 1631.4, 1696.8, 2925.2, 2906.9, 2433.5, 3152.8, 5092.6, 6275.0, 7644.6, 10337.8, 10619.2, 11254.1, 10961.1, 11490.1, 10661.2, 13410.1, 12485.2, 13621.5, 14251.7, 14641.6, 15837.4, 16570.1, 16910.3]}}, {"id": "admin_exp", "label": "Admin expenses", "unit": "rmbmn", "category": "Income Statement", "series": {"MS": [1543.5, 1624.0, 1740.0, 2584.3, 3022.3, 3232.7, 3856.3, 6426.9, 7231.3, 7651.7, 9601.6, 10579.7, 12128.2, 13744.2, 15981.3, 15823.5, 17501.5, 18558.9, 20285.3, 19526.7, 21479.3, 22768.1], "UBS": [1543.5, 1624.0, 1740.0, 2584.3, 3022.3, 3232.7, 3856.3, 6426.9, 7231.3, 7651.7, 5869.2, 6259.5, 6900.2, 7731.1, 8668.8, 8092.3, 9456.6, 10259.5, 12000.8, 11626.4, 11447.1, 12381.9, 13443.7, 14542.8]}}, {"id": "op_profit", "label": "Operating profit", "unit": "rmbmn", "category": "Income Statement", "series": {"MS": [3441.9, 2911.9, 4674.8, 9340.3, 7200.7, 3709.0, 4672.9, 4911.0, 3104.8, 4309.4, 10975.7, 13679.1, 14376.2, 12783.0, 13828.5, 4925.5, 13465.5, 17658.7, 15619.7, 20358.4, 25239.7, 29718.4], "UBS": [3549.0, 2937.1, 4634.5, 9265.2, 7042.9, 3457.5, 4511.2, 4957.3, 3013.2, 4352.0, 10474.2, 12803.5, 13225.4, 11538.2, 12221.4, 2893.8, 11969.8, 15058.8, 13853.5, 19136.2, 22024.6, 24070.2, 26633.6, 30243.5]}}, {"id": "pbt", "label": "Profit before tax", "unit": "rmbmn", "category": "Income Statement", "series": {"MS": [3277.6, 2740.8, 4679.9, 9396.7, 7418.5, 3959.8, 4608.7, 6868.4, 3125.9, 4637.6, 10522.3, 13858.3, 14351.7, 12708.1, 14459.5, 6085.2, 13151.3, 17321.5, 16213.9, 19902.3, 25202.1, 29563.9], "UBS": [3277.6, 2740.8, 4679.9, 9396.7, 7418.5, 3959.8, 4608.7, 6868.4, 3125.9, 4637.6, 10522.3, 13858.3, 14351.7, 12708.1, 14459.5, 6085.2, 13151.3, 17321.5, 16213.9, 21403.7, 24549.3, 27384.3, 30785.4, 34056.9]}}, {"id": "net_profit", "label": "Net profit (to parent)", "unit": "rmbmn", "category": "Income Statement", "series": {"MS": [2019.4, 1931.3, 3407.4, 6782.1, 5596.9, 2991.0, 3570.8, 5002.4, 1412.3, 2441.2, 6808.3, 8657.5, 9105.0, 9228.3, 9492.6, 4905.0, 9013.9, 11403.3, 10930.5, 13359.2, 17220.7, 20124.3], "UBS": [2019.4, 1931.3, 3407.4, 6782.1, 5596.9, 2991.0, 3570.8, 5002.4, 1412.3, 2441.2, 6808.3, 8657.5, 9105.0, 9228.3, 9492.6, 4905.0, 9013.9, 11403.3, 10930.5, 13902.8, 15522.4, 16989.0, 18936.5, 20650.8]}}, {"id": "rev_growth", "label": "Revenue growth", "unit": "pct", "category": "Growth & Margins", "series": {"MS": [null, 0.1321, 0.0724, 0.7813, -0.0515, -0.1975, 0.2107, 0.3657, -0.0687, 0.2564, 0.6266, 0.0507, 0.0948, 0.1315, 0.1162, -0.2046, 0.2215, 0.0081, 0.0747, 0.0848, 0.1329, 0.107], "UBS": [null, 0.1321, 0.0724, 0.7813, -0.0515, -0.1975, 0.2107, 0.3657, -0.0687, 0.2564, 0.6266, 0.0507, 0.0948, 0.1315, 0.1162, -0.2046, 0.2215, 0.0081, 0.0747, 0.0786, 0.0647, 0.0817, 0.0857, 0.0818]}}, {"id": "np_growth", "label": "Net profit growth", "unit": "pct", "category": "Growth & Margins", "series": {"MS": [null, -0.0436, 0.7643, 0.9904, -0.1748, -0.4656, 0.1938, 0.4009, -0.7177, 0.7286, 1.7889, 0.2716, 0.0517, 0.0135, 0.0286, -0.4833, 0.8377, 0.2651, -0.0415, 0.2222, 0.289, 0.1686], "UBS": [null, -0.0436, 0.7643, 0.9904, -0.1748, -0.4656, 0.1938, 0.4009, -0.7177, 0.7286, 1.7889, 0.2716, 0.0517, 0.0135, 0.0286, -0.4833, 0.8377, 0.2651, -0.0415, 0.2719, 0.1165, 0.0945, 0.1146, 0.0905]}}, {"id": "gross_margin", "label": "Gross margin", "unit": "pct", "category": "Growth & Margins", "series": {"MS": [0.2361, 0.2022, 0.2437, 0.2461, 0.2201, 0.195, 0.2062, 0.2137, 0.2306, 0.2263, 0.2184, 0.2233, 0.218, 0.1942, 0.1897, 0.1778, 0.2034, 0.2243, 0.2148, 0.2137, 0.2194, 0.2205], "UBS": [0.2361, 0.2022, 0.2437, 0.2461, 0.2201, 0.195, 0.2062, 0.2137, 0.2306, 0.2263, 0.2184, 0.2233, 0.218, 0.1942, 0.1897, 0.1778, 0.2109, 0.2243, 0.2148, 0.2209, 0.2216, 0.2224, 0.222, 0.2233]}}, {"id": "op_margin", "label": "Operating margin", "unit": "pct", "category": "Growth & Margins", "series": {"MS": [null, 0.0995, 0.1411, 0.2629, 0.1138, 0.0618, 0.097, 0.0842, 0.039, 0.0581, 0.0724, 0.0859, 0.0825, 0.0648, 0.0628, 0.0281, 0.0629, 0.0819, 0.0674, 0.081, 0.0886, 0.0942], "UBS": [0.1213, 0.0887, 0.1305, 0.1464, 0.1173, 0.0718, 0.0774, 0.0622, 0.0406, 0.0467, 0.0691, 0.0804, 0.0759, 0.0585, 0.0555, 0.0165, 0.0559, 0.0698, 0.0598, 0.0765, 0.0827, 0.0836, 0.0852, 0.0894]}}, {"id": "net_margin", "label": "Net margin", "unit": "pct", "category": "Growth & Margins", "series": {"MS": [0.069, 0.0583, 0.0959, 0.1072, 0.0933, 0.0621, 0.0612, 0.0628, 0.019, 0.0262, 0.0449, 0.0544, 0.0522, 0.0468, 0.0431, 0.028, 0.0421, 0.0529, 0.0472, 0.0531, 0.0604, 0.0638], "UBS": [0.069, 0.0583, 0.0959, 0.1072, 0.0933, 0.0621, 0.0612, 0.0628, 0.019, 0.0262, 0.0449, 0.0544, 0.0522, 0.0468, 0.0431, 0.028, 0.0421, 0.0529, 0.0472, 0.0556, 0.0583, 0.059, 0.0606, 0.0611]}}, {"id": "eps", "label": "EPS (basic)", "unit": "rmb", "category": "Per Share", "series": {"MS": [2.731, 1.1592, 2.0452, 2.0353, 1.6797, 0.748, 0.893, 1.251, 0.1766, 0.3053, 0.8513, 1.0826, 1.1476, 1.1631, 1.1306, 0.5621, 1.0329, 1.3067, 1.2526, 1.5309, 1.9734, 2.3061], "UBS": [2.76, 2.32, 2.05, 4.07, 2.8, 1.5, 1.79, 2.51, 0.35, 0.31, 0.85, 1.08, 1.15, 1.16, 1.13, 0.57, 1.04, 1.31, 1.27, 1.5955, 1.7814, 1.9497, 2.1732, 2.37]}}, {"id": "bps", "label": "Book value per share", "unit": "rmb", "category": "Per Share", "series": {"MS": [3.8301, 4.8003, 7.0552, 5.5564, 6.8734, 6.2195, 6.9332, 8.1026, 3.9939, 3.9531, 4.4065, 4.9159, 5.7001, 6.4871, 8.1254, 8.3864, 9.0912, 9.9348, 10.6789, 11.4827, 12.5682, 13.6902]}}, {"id": "dps", "label": "Dividend per share", "unit": "rmb", "category": "Per Share", "series": {"MS": [0.3098, 0.065, 0.24, 0.215, 0.05, 0.165, 0.125, 0.125, 0.1, 0.175, 0.4, 0.4575, 0.286, 0.383, 0.3846, 0.2524, 0.4661, 0.7182, 0.7271, 0.8879, 1.184, 1.3837], "UBS": [0.44, 0.13, 0.48, 0.43, 0.1, 0.33, 0.25, 0.25, 0.2, 0.35, 0.4, 0.4575, 0.286, 0.383, 0.37, 0.254, 0.519, 0.719, 0.892, 0.9573, 1.1045, 1.2478, 1.4343, 1.6116]}}, {"id": "payout", "label": "Dividend payout ratio", "unit": "pct", "category": "Per Share", "series": {"UBS": [0.1134, 0.0561, 0.1174, 0.1056, 0.0298, 0.2206, 0.14, 0.0999, 0.5663, 0.5733, 0.4698, 0.4226, 0.2492, 0.3293, 0.3401, 0.4519, 0.5025, 0.5502, 0.5793, 0.6, 0.62, 0.64, 0.66, 0.68]}}, {"id": "cash", "label": "Cash & equivalents", "unit": "rmbmn", "category": "Balance Sheet", "series": {"MS": [2715.8, 5863.9, 6578.3, 11158.6, 16612.7, 16727.0, 19580.1, 24434.4, 24856.5, 27123.0, 34221.8, 38210.0, 48817.6, 62429.3, 75043.4, 70841.7, 92856.9, 72066.9, 68712.7, 82862.8, 112585.2, 142569.5], "UBS": [2715.8, 5863.9, 6578.3, 11158.6, 16612.7, 16727.0, 19580.1, 24434.4, 24856.5, 27123.0, 34221.8, 38210.0, 48817.6, 62429.3, 79678.7, 70841.7, 92856.9, 72066.9, 68712.7, 73855.3, 89644.7, 106400.1, 124539.3, 143481.0]}}, {"id": "inventories", "label": "Inventories", "unit": "rmbmn", "category": "Balance Sheet", "series": {"MS": [4323.0, 5850.6, 5806.6, 8793.3, 10357.6, 7509.9, 8573.3, 12614.7, 11922.6, 16090.7, 19850.8, 20674.3, 24717.7, 31301.5, 31585.2, 33374.0, 37930.4, 35675.3, 35235.7, 43333.8, 48738.0, 53881.0], "UBS": [4323.0, 5850.6, 5806.6, 8793.3, 10357.6, 7509.9, 8573.3, 12614.7, 11922.6, 16090.7, 19850.8, 20674.3, 24717.7, 31301.5, 35424.9, 33374.0, 37930.4, 35675.3, 35235.7, 37919.6, 40532.8, 44031.3, 48082.5, 52167.0]}}, {"id": "receivables", "label": "Accounts receivable", "unit": "rmbmn", "category": "Balance Sheet", "series": {"MS": [1884.2, 2934.3, 3320.8, 4577.5, 4737.5, 4168.5, 4440.5, 9660.0, 9001.7, 11336.2, 13572.5, 13155.4, 14285.3, 15285.3, 18190.8, 21418.5, 23754.0, 30877.2, 34355.1, 37267.2, 42220.5, 46738.6], "UBS": [1884.2, 2934.3, 3320.8, 4577.5, 4737.5, 4168.5, 4440.5, 9660.0, 9001.7, 11336.2, 13572.5, 13155.4, 14285.3, 15285.3, 18667.2, 21418.5, 23754.0, 30877.2, 34355.1, 36913.2, 39113.2, 42182.3, 45691.4, 49300.6]}}, {"id": "payables", "label": "Accounts payable", "unit": "rmbmn", "category": "Balance Sheet", "series": {"MS": [5470.3, 6442.2, 8382.3, 13137.6, 13079.0, 9962.4, 13472.7, 15922.1, 14702.6, 21897.8, 30654.8, 30869.4, 36748.5, 45177.3, 39596.5, 45560.1, 60126.8, 58033.0, 68036.6, 72042.4, 81026.9, 89577.2], "UBS": [5470.3, 6442.2, 8382.3, 13137.6, 13079.0, 9962.4, 13472.7, 15922.1, 14702.6, 21897.8, 30654.8, 30869.4, 36748.5, 45177.3, 43649.2, 45560.1, 60126.8, 58033.0, 68036.6, 72584.5, 76482.1, 81928.0, 88153.2, 94560.6]}}, {"id": "total_equity", "label": "Total equity", "unit": "rmbmn", "category": "Balance Sheet", "series": {"MS": [9407.6, 11326.5, 15661.3, 23370.1, 28902.8, 31399.2, 34327.3, 41941.9, 41937.0, 44273.9, 56355.0, 62259.3, 69774.7, 80699.2, 102961.7, 104110.7, 112685.7, 121958.7, 131062.0, 141437.0, 155241.6, 170096.1], "UBS": [9407.6, 11326.5, 15661.3, 23370.1, 28902.8, 31399.2, 34327.3, 41941.9, 41937.0, 44273.9, 56355.0, 62259.3, 69774.7, 80699.2, 105514.9, 104110.7, 112685.7, 121958.7, 131062.0, 142708.6, 154988.3, 168367.2, 183354.1, 199463.8]}}, {"id": "total_assets", "label": "Total assets", "unit": "rmbmn", "category": "Balance Sheet", "series": {"UBS": [22422.7, 29267.7, 36218.2, 52517.2, 61544.5, 66320.4, 78521.8, 122255.6, 115840.4, 163536.2, 189638.2, 205276.4, 236831.7, 271061.7, 293656.2, 293666.1, 334247.2, 343879.4, 367475.6, 386791.2, 406003.7, 428903.4, 454837.5, 482111.7]}}, {"id": "total_liab", "label": "Total liabilities", "unit": "rmbmn", "category": "Balance Sheet", "series": {"UBS": [13015.1, 17941.3, 20556.8, 29147.1, 32641.8, 34921.1, 44194.5, 80313.7, 73903.5, 119262.2, 133283.2, 143017.0, 167056.9, 190362.5, 188141.3, 189555.4, 221561.5, 221920.8, 236413.6, 244082.6, 251015.4, 260536.2, 271483.4, 282647.9]}}, {"id": "ocf", "label": "Operating cash flow", "unit": "rmbmn", "category": "Cash Flow", "series": {"MS": [2303.0, 1874.9, 2439.3, 9404.8, 5952.7, 2756.2, 5768.4, 11105.4, 6809.3, 8250.4, 16258.3, 22261.6, 23834.7, 22991.6, 14657.6, -2349.5, 27470.9, 26094.1, 28681.5, 22942.4, 45945.0, 49811.1], "UBS": [2303.0, 1874.9, 2439.3, 9404.8, 5952.7, 2756.2, 5768.4, 11171.7, 6838.5, 8250.4, 16258.3, 22261.6, 23834.7, 22991.6, 20717.1, -2349.5, 27470.9, 26094.1, 28681.5, null, null, null, null, null]}}, {"id": "icf", "label": "Investing cash flow", "unit": "rmbmn", "category": "Cash Flow", "series": {"MS": [-1379.9, -1939.8, -1340.2, -2643.3, -3640.3, -7991.8, -3989.8, -2129.8, -4115.0, -19630.5, -5037.2, -7181.0, -8390.9, -9417.1, -5408.6, -8545.2, -5736.9, -28911.0, -16628.3, -7822.5, -9197.4, -10182.2], "UBS": [-1379.9, -1939.8, -1340.2, -2007.4, -3640.3, -7991.8, -3989.8, -2129.8, -4115.0, -19630.5, -5037.2, -7181.0, -8390.9, -9417.1, -5380.7, -8545.2, -5736.9, -28911.0, -16628.3, -7114.3, -6857.2, -6067.7, -5229.9, -5568.4]}}, {"id": "fcf_fin", "label": "Financing cash flow", "unit": "rmbmn", "category": "Cash Flow", "series": {"MS": [-340.0, 706.5, -589.7, -1525.3, 1916.1, 6045.4, 694.7, -5066.9, -2175.6, 11741.6, -1544.5, -6980.3, -7567.2, -3004.8, 3123.5, 4852.0, -13029.2, -13838.1, -18320.3, -969.7, -7025.1, -9644.6], "UBS": [-340.0, 706.5, -589.7, -1525.3, 1916.1, 6045.4, 694.7, -5066.9, -2175.6, 11741.6, -6597.7, -6980.3, -7567.2, -3004.8, -1243.6, 4852.0, -13029.2, -13838.1, -18320.3, -9407.1, -11416.3, -12698.5, -13947.6, -15572.7]}}, {"id": "roe", "label": "ROE", "unit": "pct", "category": "Returns & Gearing", "series": {"MS": [null, 0.2053, 0.3008, 0.4331, 0.2141, 0.0992, 0.1087, 0.1312, 0.0337, 0.0566, 0.1353, 0.146, 0.1379, 0.1227, 0.1034, 0.0474, 0.0832, 0.0972, 0.0864, 0.098, 0.1161, 0.1237]}}, {"id": "roaa", "label": "ROAA", "unit": "pct", "category": "Returns & Gearing", "series": {"MS": [null, 0.0747, 0.1041, 0.1529, 0.0981, 0.0468, 0.0493, 0.0498, 0.0119, 0.0175, 0.0386, 0.0438, 0.0412, 0.0363, 0.0346, 0.0172, 0.0287, 0.0336, 0.0307, 0.0353, 0.0423, 0.0454]}}, {"id": "net_gearing", "label": "Net debt / equity", "unit": "pct", "category": "Returns & Gearing", "series": {"MS": [-0.2064, -0.4808, -0.2818, -0.4523, -0.4948, -0.1848, -0.1927, -0.0904, -0.1058, 0.4823, 0.0195, -0.0678, -0.2683, -0.4798, -0.6096, -0.3577, -0.6176, -0.3847, -0.3138, -0.4248, -0.6506, -0.8396]}}, {"id": "liab_equity", "label": "Total liabilities / equity", "unit": "pct", "category": "Returns & Gearing", "series": {"MS": [1.3835, 1.584, 1.3126, 1.2472, 1.1294, 1.1122, 1.2874, 1.9149, 1.7623, 2.6937, 2.3651, 2.2971, 2.3942, 2.3589, 1.6908, 1.8207, 1.9662, 1.8196, 1.8038, 1.7475, 1.7387, 1.7119]}}, {"id": "inv_days", "label": "Inventory days", "unit": "days", "category": "Efficiency", "series": {"MS": [70.592, 80.8004, 78.8844, 67.2809, 80.7687, 70.6927, 67.604, 73.5302, 76.2613, 81.4576, 61.1606, 61.0101, 66.1661, 71.8651, 64.6098, 84.5875, 81.2298, 77.8308, 70.6543, 80.0, 80.0, 80.0]}}, {"id": "recv_days", "label": "Receivable days", "unit": "days", "category": "Efficiency", "series": {"MS": [76.1497, 76.3544, 116.6, 91.5202, 86.896, 101.6, 116.2, 107.4, 89.9505, 110.0, 93.5893, 87.4318, 85.2904, 81.5182, 57.6016, 64.643, 55.3699, 65.6045, 55.0844, 55.0844, 55.0844, 55.0844]}}, {"id": "pay_days", "label": "Payable days", "unit": "days", "category": "Efficiency", "series": {"MS": [120.7, 146.8, 161.1, 132.0, 148.5, 143.1, 159.0, 156.2, 129.4, 155.2, 132.5, 138.1, 158.5, 156.8, 137.9, 171.3, 187.9, 201.1, 208.9, 193.0, 193.0, 193.0]}}, {"id": "asset_turn", "label": "Asset turnover", "unit": "x", "category": "Efficiency", "series": {"MS": [1.305, 1.1319, 0.9809, 1.2049, 0.9752, 0.7263, 0.7426, 0.6514, 0.6403, 0.5698, 0.7993, 0.7758, 0.7362, 0.7278, 0.7949, 0.5965, 0.6401, 0.6272, 0.6308, 0.6471, 0.6701, 0.6837]}}, {"id": "pe_h", "label": "P/E (H-share)", "unit": "x", "category": "Valuation", "series": {"MS": [1.2706, 1.155, 2.8117, 4.1519, 3.8397, 9.2417, 6.8306, 5.2278, 20.3542, 17.504, 8.4963, 7.2498, 12.8067, 11.2829, 11.034, 16.6068, 11.4662, 8.2236, 17.2447, 22.7165, 17.6227, 15.08]}}, {"id": "pb_h", "label": "P/BV (H-share)", "unit": "x", "category": "Valuation", "series": {"MS": [0.906, 0.2789, 0.8151, 1.5209, 0.9383, 1.1115, 0.8798, 0.8072, 0.9, 1.3516, 1.6415, 1.5965, 2.5784, 2.023, 1.5353, 1.113, 1.3028, 1.0817, 2.0227, 3.0286, 2.767, 2.5402]}}, {"id": "yield_h", "label": "Dividend yield (H)", "unit": "pct", "category": "Valuation", "series": {"MS": [0.0893, 0.0427, 0.0367, 0.0216, 0.0063, 0.0192, 0.016, 0.0153, 0.0233, 0.0293, 0.0467, 0.0511, 0.0174, 0.0292, 0.0308, 0.027, 0.0394, 0.0668, 0.0337, 0.0255, 0.034, 0.0398]}}, {"id": "pe_a", "label": "P/E (A-share)", "unit": "x", "category": "Valuation", "series": {"MS": [2.0645, 1.6157, 3.2842, 5.3605, 3.907, 8.4591, 5.3191, 5.4535, 27.3507, 16.3143, 9.7964, 7.1127, 13.8375, 13.5752, 15.8238, 18.1113, 13.2149, 10.3005, 17.2447, 20.3806, 15.8105, 13.5294]}}, {"id": "pb_a", "label": "P/BV (A-share)", "unit": "x", "category": "Valuation", "series": {"MS": [1.472, 0.3902, 0.952, 1.9636, 0.9548, 1.0174, 0.6851, 0.842, 1.2094, 1.2598, 1.8927, 1.5663, 2.7859, 2.434, 2.2017, 1.2139, 1.5014, 1.3548, 2.0227, 2.7171, 2.4825, 2.279]}}, {"id": "ev_ebitda", "label": "EV/EBITDA (A)", "unit": "x", "category": "Valuation", "series": {"MS": [0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 2.8128, 3.7096, 6.2268, 6.6311, 6.7857, 7.2687, 5.4874, 4.2216, 6.9713, 8.467, 7.2548, 6.3906]}}], "segments": {"MS": {"revenue": {"Engine": [11295.2, 13903.3, 16926.9, 32373.8, 28856.0, 21204.8, 27328.2, 27872.0, 17390.5, 24820.9, 43802.2, 44858.0, 49976.1, 62517.7, 64459.8, 39150.7, 60774.9, 59408.6, 64024.8, 75754.8, 98118.1, 116954.3], "Heavy Truck": [12367.0, 14579.0, 13222.0, 24029.0, 24711.0, 22861.5, 24561.8, 25883.2, 16558.3, 24360.4, 47351.5, 51120.0, 54399.9, 65843.5, 54090.4, 31999.9, 44970.7, 44197.0, 52597.9, 58295.0, 60870.3, 64778.7], "Fast Gear": [4600.0, 5200.0, 6247.0, 11788.3, 10856.0, 6580.0, 8282.0, 9059.4, 5979.9, 7589.0, 13245.2, 13923.7, 15108.0, 17989.4, 16863.9, 10260.0, 14385.1, 12609.3, 12969.8, 13618.3, 14299.2, 15014.2], "Linde Hydraulics": [null, null, null, null, null, 532.2, 2128.9, 1800.0, 1800.0, 1890.0, 2000.0, 2400.0, 2957.4, 3844.7, 4998.1, 6497.5, 9876.2, 10370.0, 10888.5, 11432.9, 12004.5, 12604.8], "KION": [null, null, null, null, null, null, null, 19975.2, 35488.1, 41063.0, 58493.1, 60540.1, 67177.1, 65111.3, 78624.6, 79010.4, 87521.4, 88777.2, 91131.2, 91496.0, 96328.0, 101352.0], "Others": [3600.9, 2461.4, 1727.1, 398.6, 229.5, 798.8, 773.1, 1303.6, 1593.4, 926.1, 490.1, -596.1, -990.3, -1772.6, 14972.9, 15787.0, 12065.3, 13207.6, 13515.5, 15129.9, 17747.8, 20079.7], "Eliminations": [-2602.1, -3015.9, -2597.8, -5310.1, -4633.2, -3812.0, -4762.3, -6256.1, -4642.5, -7465.8, -13812.7, -12989.8, -14267.3, -16245.6, -13794.6, -7548.0, -15635.1, -12879.2, -13318.4, -14268.2, -14486.8, -15417.0]}, "grossMargin": {"Engine": [null, null, null, null, null, 0.2529, 0.2714, 0.2469, 0.2009, 0.2291, 0.2511, 0.2604, 0.2455, 0.2262, 0.2379, 0.2323, 0.2451, 0.2745, 0.2674, 0.2677, 0.2617, 0.2649], "Heavy Truck": [0.105, 0.095, 0.1198, 0.12, 0.115, 0.11, 0.0988, 0.0984, 0.1025, 0.1054, 0.1, 0.0886, 0.089, 0.093, 0.08, 0.085, 0.089, 0.088, 0.087, 0.087, 0.087, 0.087], "Fast Gear": [0.371, 0.27, 0.247, 0.28, 0.245, 0.18, 0.2, 0.2, 0.2, 0.22, 0.24, 0.23, 0.22, 0.22, 0.215, 0.18, 0.2, 0.2, 0.2, 0.2, 0.2, 0.2], "Linde Hydraulics": [null, null, null, null, null, null, 0.2, 0.2, 0.2, 0.2, 0.2, 0.2, 0.2, 0.2, 0.2, 0.2, 0.2, 0.2, 0.2, 0.2, 0.2, 0.2], "KION": [null, null, null, null, null, null, null, 0.3734, 0.3775, 0.3593, 0.3385, 0.3747, 0.3668, 0.3575, 0.3365, 0.2836, 0.3353, 0.3679, 0.3734, 0.34, 0.34, 0.34], "Total": [0.2361, 0.2022, 0.2437, 0.2461, 0.2201, 0.195, 0.2062, 0.2137, 0.2306, 0.2263, 0.2184, 0.2233, 0.218, 0.1942, 0.1897, 0.1778, 0.2034, 0.2243, 0.2044, 0.2137, 0.2194, 0.2205]}}, "UBS": {"Engine": [11295.2, 13903.3, 16926.9, 31840.7, 28856.0, 21204.8, 27328.2, 27872.0, 16942.7, 24820.9, 43802.2, 44858.0, 49976.0, 62720.4, 49121.0, 26079.8, 43830.4, 39333.3, 40519.6, 39884.8, 40094.6, 40303.4, 41329.4, 41830.3], "Gearbox": [5904.0, 4899.0, 6247.0, 10676.0, 9171.0, 6580.1, 8282.4, 9059.4, 5980.0, 7589.0, 13245.0, 13923.7, 15108.0, 17989.4, 16863.9, 10260.0, 14385.1, 12609.3, 12970.0, 13268.6, 13465.5, 13634.0, 14284.1, 14877.3], "Truck": [12367.0, 14579.0, 13222.0, 24029.0, 24711.0, 22861.5, 24561.8, 25883.2, 16558.0, 24360.0, 47351.0, 51120.0, 54399.9, 65843.5, 54090.4, 32000.0, 44970.7, 44197.0, 52598.0, 54701.9, 58120.8, 61654.5, 67725.1, 74013.9], "Agri machinery": [null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, 17655.5, 16033.5, 18345.1, 18023.0, 18924.2, 19870.4, 20863.9, 21907.1, 23002.4], "KION": [0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 19975.2, 35488.1, 41063.0, 58376.3, 61566.9, 68690.7, 65064.5, 78624.6, 79010.0, 87521.4, 89725.1, 92636.6, 96596.0, 100696.0, 106436.0, 109716.0, 113816.0], "Others": [-305.3, -253.6, -870.8, -3266.1, -2718.7, -2481.0, -1860.7, -3152.6, -801.0, -4649.4, -11205.1, -12212.7, -13813.7, -14329.4, 21515.1, 10152.3, 7217.3, 6467.6, 6212.0, 6212.0, 6212.0, 6212.0, 6212.0, 6212.0]}}}</script>
+<script>
+'use strict';
+const DATA = JSON.parse(document.getElementById('model-data').textContent);
+const METRICS = Object.fromEntries(DATA.metrics.map(m => [m.id, m]));
+
+const css = name => getComputedStyle(document.body).getPropertyValue(name).trim();
+const COLORS = () => ({ MS: css('--s1'), UBS: css('--s2') });
+const SEG_SLOTS = () => [css('--s1'), css('--s2'), css('--s3'), css('--s4'), css('--s5'), css('--s6')];
+
+const SEG_VIEWS = {
+  seg_rev_ms:  { label: 'Revenue by segment',      src: 'MS',  kind: 'stack' },
+  seg_mix_ms:  { label: 'Revenue mix by segment',  src: 'MS',  kind: 'mix'   },
+  seg_gm_ms:   { label: 'Gross margin by segment', src: 'MS',  kind: 'lines' },
+  seg_rev_ubs: { label: 'Revenue by segment',      src: 'UBS', kind: 'stack' },
+};
+
+const state = {
+  metric: 'revenue',      // metric id or SEG_VIEWS key
+  source: 'Both',         // MS | UBS | Both
+  range: 'all',           // all | y2015 | y2020 | fcst
+  compare: '',            // '' or metric id
+  mode: 'panels',         // panels | overlay | indexed | scatter
+  table: false,
+};
+
+const RANGES = { all: 2007, y2015: 2015, y2020: 2020, fcst: 2023 };
+
+/* ---------- formatting ---------- */
+function fmt(v, unit, scale) {
+  if (v == null) return '–';
+  switch (unit) {
+    case 'rmbmn': {
+      if (scale === 'bn') return (v / 1000).toLocaleString('en-US', { maximumFractionDigits: Math.abs(v) >= 100000 ? 0 : 1 });
+      return Math.round(v).toLocaleString('en-US');
+    }
+    case 'pct':  return (v * 100).toFixed(Math.abs(v) < 0.10 ? 1 : 1) + '%';
+    case 'x':    return v.toFixed(1) + 'x';
+    case 'days': return Math.round(v).toString();
+    case 'rmb':  return v.toFixed(2);
+    case 'idx':  return v.toFixed(0);
+    default:     return String(v);
+  }
+}
+function unitLabel(unit, scale) {
+  return { rmbmn: scale === 'bn' ? 'RMB bn' : 'RMB mn', pct: '%', x: 'multiple (x)', days: 'days', rmb: 'RMB / share', idx: 'indexed, base = 100' }[unit] || '';
+}
+
+/* ---------- series assembly ---------- */
+function metricSeries(id, sources) {
+  const m = METRICS[id], out = [];
+  for (const src of sources) {
+    const vals = m.series[src];
+    if (!vals) continue;
+    const meta = DATA.sources[src];
+    out.push({ name: src, color: COLORS()[src], years: meta.years, values: vals, estFrom: meta.estFrom, unit: m.unit });
+  }
+  return out;
+}
+function availableSources(id) { return Object.keys(METRICS[id].series); }
+
+function clipToRange(s, fromYear) {
+  const i0 = s.years.findIndex(y => y >= fromYear);
+  return { ...s, years: s.years.slice(i0), values: s.values.slice(i0) };
+}
+
+/* ---------- scales ---------- */
+function niceTicks(lo, hi, n) {
+  if (lo === hi) { lo -= 1; hi += 1; }
+  const span = hi - lo, step0 = span / n, mag = Math.pow(10, Math.floor(Math.log10(step0)));
+  const step = [1, 2, 2.5, 5, 10].map(k => k * mag).find(s => span / s <= n) || 10 * mag;
+  const t0 = Math.ceil(lo / step) * step, ticks = [];
+  for (let t = t0; t <= hi + 1e-9; t += step) ticks.push(Math.abs(t) < step / 1e6 ? 0 : t);
+  return ticks;
+}
+
+/* ---------- SVG helpers ---------- */
+const NS = 'http://www.w3.org/2000/svg';
+function el(tag, attrs, parent) {
+  const e = document.createElementNS(NS, tag);
+  for (const k in attrs) e.setAttribute(k, attrs[k]);
+  if (parent) parent.appendChild(e);
+  return e;
+}
+function roundedBarPath(x, y, w, h, r, up) {
+  r = Math.min(r, w / 2, Math.abs(h));
+  if (h <= 0) return '';
+  if (up) return `M${x},${y + h} L${x},${y + r} Q${x},${y} ${x + r},${y} L${x + w - r},${y} Q${x + w},${y} ${x + w},${y + r} L${x + w},${y + h} Z`;
+  return `M${x},${y} L${x + w},${y} L${x + w},${y + h - r} Q${x + w},${y + h} ${x + w - r},${y + h} L${x + r},${y + h} Q${x},${y + h} ${x},${y + h - r} Z`;
+}
+
+/* ---------- core chart renderer ----------
+   spec: { kind: 'columns'|'line'|'stack', series:[{name,color,years,values,estFrom}],
+           unit, height, yearDomain, showEstShade } */
+const MARGIN = { top: 14, right: 16, bottom: 26, left: 56 };
+
+function renderTimeseries(box, spec) {
+  const W = box.clientWidth || 760, H = spec.height;
+  const iw = W - MARGIN.left - MARGIN.right, ih = H - MARGIN.top - MARGIN.bottom;
+  const years = spec.yearDomain;
+  const n = years.length, band = iw / Math.max(n, 1);
+
+  const allVals = [];
+  if (spec.kind === 'stack') {
+    for (let i = 0; i < n; i++) {
+      let pos = 0, neg = 0;
+      for (const s of spec.series) { const v = valAt(s, years[i]); if (v != null) { if (v >= 0) pos += v; else neg += v; } }
+      allVals.push(pos, neg);
+    }
+  } else {
+    for (const s of spec.series) for (const y of years) { const v = valAt(s, y); if (v != null) allVals.push(v); }
+  }
+  let lo = Math.min(0, ...allVals), hi = Math.max(0, ...allVals);
+  if (!isFinite(lo)) { lo = 0; hi = 1; }
+  const pad = (hi - lo) * 0.06; hi += pad; if (lo < 0) lo -= pad;
+  const ticks = niceTicks(lo, hi, 5);
+  lo = Math.min(lo, ticks[0]); hi = Math.max(hi, ticks[ticks.length - 1]);
+  const yPix = v => MARGIN.top + ih - ((v - lo) / (hi - lo)) * ih;
+  const xPix = i => MARGIN.left + band * i + band / 2;
+
+  const scale = spec.unit === 'rmbmn' && Math.max(Math.abs(lo), Math.abs(hi)) >= 20000 ? 'bn' : '';
+  spec.scaleUsed = scale;
+
+  const svg = el('svg', { width: W, height: H, viewBox: `0 0 ${W} ${H}`, role: 'img' });
+
+  for (const t of ticks) {
+    el('line', { x1: MARGIN.left, x2: W - MARGIN.right, y1: yPix(t), y2: yPix(t), stroke: css('--grid'), 'stroke-width': 1 }, svg);
+    el('text', { x: MARGIN.left - 8, y: yPix(t) + 3.5, 'text-anchor': 'end', 'font-size': 10.5, fill: css('--ink-3'), style: 'font-variant-numeric:tabular-nums' }, svg)
+      .textContent = fmt(t, spec.unit === 'pct' ? 'pct' : spec.unit, scale).replace('%', '');
+  }
+  const zeroY = yPix(Math.max(lo, Math.min(0, hi)));
+  el('line', { x1: MARGIN.left, x2: W - MARGIN.right, y1: zeroY, y2: zeroY, stroke: css('--baseline'), 'stroke-width': 1 }, svg);
+
+  // estimate-region separator (first estimate year of any series)
+  const estStarts = spec.series.map(s => s.estFrom).filter(Boolean);
+  if (estStarts.length && spec.showEstShade !== false) {
+    const e0 = Math.min(...estStarts), idx = years.indexOf(e0);
+    if (idx > 0) {
+      const xSep = MARGIN.left + band * idx;
+      el('line', { x1: xSep, x2: xSep, y1: MARGIN.top, y2: MARGIN.top + ih, stroke: css('--grid'), 'stroke-width': 1 }, svg);
+      el('text', { x: xSep + 4, y: MARGIN.top + 9, 'font-size': 10, fill: css('--ink-3') }, svg).textContent = 'estimates →';
+    }
+  }
+
+  // x labels
+  const every = band < 26 ? (band < 16 ? 3 : 2) : 1;
+  years.forEach((y, i) => {
+    if (i % every !== 0 && i !== n - 1) return;
+    const est = spec.series.some(s => s.estFrom && y >= s.estFrom && valAt(s, y) != null);
+    el('text', { x: xPix(i), y: H - 8, 'text-anchor': 'middle', 'font-size': 10.5, fill: css('--ink-3') }, svg)
+      .textContent = String(y).slice(2) + (est ? 'E' : '');
+  });
+
+  /* marks */
+  if (spec.kind === 'columns') {
+    const s = spec.series[0];
+    const bw = Math.min(24, band - 6);
+    years.forEach((y, i) => {
+      const v = valAt(s, y); if (v == null) return;
+      const isEst = s.estFrom && y >= s.estFrom;
+      const y0 = yPix(0), y1 = yPix(v);
+      const top = Math.min(y0, y1), h = Math.abs(y0 - y1);
+      const p = el('path', { d: roundedBarPath(xPix(i) - bw / 2, top, bw, h, 4, v >= 0), fill: s.color, 'fill-opacity': isEst ? 0.4 : 1 }, svg);
+      p.dataset.yi = i;
+    });
+  } else if (spec.kind === 'stack') {
+    const bw = Math.min(24, band - 6);
+    years.forEach((y, i) => {
+      let posBase = 0, negBase = 0;
+      spec.series.forEach(s => {
+        const v = valAt(s, y); if (v == null || v === 0) return;
+        const isEst = s.estFrom && y >= s.estFrom;
+        let a, b;
+        if (v >= 0) { a = posBase; b = posBase + v; posBase = b; } else { a = negBase + v; b = negBase; negBase = a; }
+        const yA = yPix(b), yB = yPix(a);
+        const h = Math.max(0, yB - yA - 2);            // 2px surface gap between segments
+        if (h < 0.5) return;
+        el('rect', { x: xPix(i) - bw / 2, y: yA + 1, width: bw, height: h, rx: 1.5, fill: s.color, 'fill-opacity': isEst ? 0.45 : 1 }, svg);
+      });
+    });
+  } else { // lines
+    for (const s of spec.series) {
+      const pts = years.map((y, i) => { const v = valAt(s, y); return v == null ? null : [xPix(i), yPix(v), y]; });
+      const segs = { actual: [], est: [] };
+      let prev = null;
+      pts.forEach(p => {
+        if (!p) { prev = null; return; }
+        const isEst = s.estFrom && p[2] >= s.estFrom;
+        const bucket = isEst ? 'est' : 'actual';
+        if (prev && (prev.bucket !== bucket)) segs.est.push(['M', prev.p, p]); // bridge actual→est as dashed
+        else if (prev) segs[bucket].push(['L', prev.p, p]);
+        else segs[bucket].push(['S', null, p]);
+        prev = { p, bucket };
+      });
+      const toPath = arr => {
+        let d = '', last = null;
+        for (const [, a, b] of arr) {
+          if (a && last !== a) d += `M${a[0]},${a[1]}`;
+          if (!a) { d += `M${b[0]},${b[1]}`; last = b; continue; }
+          d += `L${b[0]},${b[1]}`; last = b;
+        }
+        return d;
+      };
+      const base = { fill: 'none', stroke: s.color, 'stroke-width': 2, 'stroke-linecap': 'round', 'stroke-linejoin': 'round' };
+      const dAct = toPath(segs.actual), dEst = toPath(segs.est);
+      if (dAct) el('path', { ...base, d: dAct }, svg);
+      if (dEst) el('path', { ...base, d: dEst, 'stroke-dasharray': '5 4' }, svg);
+      // end marker with surface ring
+      const lastPt = [...pts].reverse().find(Boolean);
+      if (lastPt) {
+        el('circle', { cx: lastPt[0], cy: lastPt[1], r: 6, fill: css('--surface-1') }, svg);
+        el('circle', { cx: lastPt[0], cy: lastPt[1], r: 4, fill: s.color }, svg);
+      }
+    }
+  }
+
+  /* selective direct labels: last actual + final estimate of first series */
+  if (spec.kind !== 'stack' && spec.series.length <= 2) {
+    for (const s of spec.series) {
+      const lastY = [...years].reverse().find(y => valAt(s, y) != null);
+      if (lastY == null) continue;
+      const i = years.indexOf(lastY), v = valAt(s, lastY);
+      el('text', { x: xPix(i), y: yPix(v) - 10, 'text-anchor': 'middle', 'font-size': 10.5, 'font-weight': 650, fill: css('--ink-2'), style: 'font-variant-numeric:tabular-nums' }, svg)
+        .textContent = fmt(v, spec.unit, scale);
+    }
+  }
+
+  /* hover layer: crosshair + tooltip */
+  const hair = el('line', { y1: MARGIN.top, y2: MARGIN.top + ih, stroke: css('--baseline'), 'stroke-width': 1, visibility: 'hidden' }, svg);
+  const overlay = el('rect', { x: MARGIN.left, y: MARGIN.top, width: iw, height: ih, fill: 'transparent', tabindex: 0 }, svg);
+  const show = i => {
+    hair.setAttribute('x1', xPix(i)); hair.setAttribute('x2', xPix(i));
+    hair.setAttribute('visibility', 'visible');
+    const rows = spec.series
+      .map(s => ({ name: spec.kind === 'stack' || spec.series.length > 1 ? s.name : METRICS[state.metric] ? METRICS[state.metric].label : s.name, color: s.color, v: valAt(s, years[i]) }))
+      .filter(r => r.v != null);
+    const est = spec.series.some(s => s.estFrom && years[i] >= s.estFrom);
+    showTooltip(box, xPix(i), MARGIN.top, `${years[i]}${est ? 'E' : ''}`, rows.map(r => ({ ...r, text: fmt(r.v, spec.unit, scale) })));
+  };
+  overlay.addEventListener('pointermove', ev => {
+    const r = svg.getBoundingClientRect();
+    const i = Math.max(0, Math.min(n - 1, Math.floor((ev.clientX - r.left - MARGIN.left) / band)));
+    show(i);
+  });
+  overlay.addEventListener('pointerleave', () => { hair.setAttribute('visibility', 'hidden'); hideTooltip(); });
+  let focusI = n - 1;
+  overlay.addEventListener('keydown', ev => {
+    if (ev.key === 'ArrowLeft') focusI = Math.max(0, focusI - 1);
+    else if (ev.key === 'ArrowRight') focusI = Math.min(n - 1, focusI + 1);
+    else return;
+    ev.preventDefault(); show(focusI);
+  });
+  overlay.addEventListener('focus', () => show(focusI));
+  overlay.addEventListener('blur', () => { hair.setAttribute('visibility', 'hidden'); hideTooltip(); });
+
+  box.appendChild(svg);
+  return spec;
+}
+
+function valAt(s, year) {
+  const i = s.years.indexOf(year);
+  return i < 0 ? null : s.values[i];
+}
+
+/* ---------- scatter renderer ---------- */
+function renderScatter(box, a, b, sourceName) {
+  const W = box.clientWidth || 760, H = 380;
+  const M = { top: 16, right: 20, bottom: 40, left: 62 };
+  const iw = W - M.left - M.right, ih = H - M.top - M.bottom;
+  const pts = [];
+  for (const y of a.years) {
+    const va = valAt(a, y), vb = valAt(b, y);
+    if (va != null && vb != null) pts.push({ y, va, vb, est: (a.estFrom && y >= a.estFrom) });
+  }
+  const xs = pts.map(p => p.va), ys = pts.map(p => p.vb);
+  let xlo = Math.min(...xs), xhi = Math.max(...xs), ylo = Math.min(...ys), yhi = Math.max(...ys);
+  const xp = (xhi - xlo) * 0.08 || 1, yp = (yhi - ylo) * 0.08 || 1;
+  xlo -= xp; xhi += xp; ylo -= yp; yhi += yp;
+  const xT = niceTicks(xlo, xhi, 6), yT = niceTicks(ylo, yhi, 5);
+  const X = v => M.left + ((v - xlo) / (xhi - xlo)) * iw;
+  const Y = v => M.top + ih - ((v - ylo) / (yhi - ylo)) * ih;
+  const xScale = a.unit === 'rmbmn' && Math.max(Math.abs(xlo), Math.abs(xhi)) >= 20000 ? 'bn' : '';
+  const yScale = b.unit === 'rmbmn' && Math.max(Math.abs(ylo), Math.abs(yhi)) >= 20000 ? 'bn' : '';
+
+  const svg = el('svg', { width: W, height: H, viewBox: `0 0 ${W} ${H}`, role: 'img' });
+  for (const t of yT) {
+    el('line', { x1: M.left, x2: W - M.right, y1: Y(t), y2: Y(t), stroke: css('--grid'), 'stroke-width': 1 }, svg);
+    el('text', { x: M.left - 8, y: Y(t) + 3.5, 'text-anchor': 'end', 'font-size': 10.5, fill: css('--ink-3'), style: 'font-variant-numeric:tabular-nums' }, svg).textContent = fmt(t, b.unit, yScale).replace('%', '');
+  }
+  for (const t of xT) {
+    el('text', { x: X(t), y: H - 22, 'text-anchor': 'middle', 'font-size': 10.5, fill: css('--ink-3'), style: 'font-variant-numeric:tabular-nums' }, svg).textContent = fmt(t, a.unit, xScale).replace('%', '');
+  }
+  el('line', { x1: M.left, x2: W - M.right, y1: M.top + ih, y2: M.top + ih, stroke: css('--baseline'), 'stroke-width': 1 }, svg);
+  el('text', { x: M.left + iw / 2, y: H - 5, 'text-anchor': 'middle', 'font-size': 11, fill: css('--ink-2') }, svg)
+    .textContent = `${METRICS[state.metric].label} (${unitLabel(a.unit, xScale)})`;
+  const yl = el('text', { x: 14, y: M.top + ih / 2, 'font-size': 11, fill: css('--ink-2'), transform: `rotate(-90 14 ${M.top + ih / 2})`, 'text-anchor': 'middle' }, svg);
+  yl.textContent = `${METRICS[state.compare].label} (${unitLabel(b.unit, yScale)})`;
+
+  const c = css('--s1');
+  pts.forEach((p, idx) => {
+    el('circle', { cx: X(p.va), cy: Y(p.vb), r: 7, fill: css('--surface-1') }, svg);
+    el('circle', { cx: X(p.va), cy: Y(p.vb), r: 5, fill: c, 'fill-opacity': p.est ? 0.4 : 1 }, svg);
+    if (idx === 0 || idx === pts.length - 1) {
+      el('text', { x: X(p.va) + 9, y: Y(p.vb) + 3.5, 'font-size': 10.5, 'font-weight': 650, fill: css('--ink-2') }, svg)
+        .textContent = p.y + (p.est ? 'E' : '');
+    }
+    const hit = el('circle', { cx: X(p.va), cy: Y(p.vb), r: 14, fill: 'transparent', tabindex: 0 }, svg);
+    const showP = () => showTooltip(box, X(p.va), Y(p.vb) - 10, `${p.y}${p.est ? 'E' : ''} · ${sourceName}`, [
+      { name: METRICS[state.metric].label, color: c, text: fmt(p.va, a.unit, xScale) },
+      { name: METRICS[state.compare].label, color: c, text: fmt(p.vb, b.unit, yScale) },
+    ]);
+    hit.addEventListener('pointerenter', showP);
+    hit.addEventListener('focus', showP);
+    hit.addEventListener('pointerleave', hideTooltip);
+    hit.addEventListener('blur', hideTooltip);
+  });
+  box.appendChild(svg);
+}
+
+/* ---------- tooltip ---------- */
+const tt = document.getElementById('tooltip');
+function showTooltip(box, xInBox, yInBox, title, rows) {
+  tt.replaceChildren();
+  const t = document.createElement('div'); t.className = 'tt-title'; t.textContent = title; tt.appendChild(t);
+  for (const r of rows) {
+    const row = document.createElement('div'); row.className = 'tt-row';
+    const key = document.createElement('span'); key.className = 'tt-key'; key.style.background = r.color;
+    const nm = document.createElement('span'); nm.className = 'tt-name'; nm.textContent = r.name;
+    const vl = document.createElement('span'); vl.className = 'tt-val'; vl.textContent = r.text;
+    row.append(key, nm, vl); tt.appendChild(row);
+  }
+  tt.style.display = 'block';
+  const br = box.getBoundingClientRect();
+  let px = br.left + window.scrollX + xInBox + 14;
+  let py = br.top + window.scrollY + yInBox + 6;
+  if (px + tt.offsetWidth > window.scrollX + document.documentElement.clientWidth - 12) px -= tt.offsetWidth + 26;
+  tt.style.left = px + 'px'; tt.style.top = py + 'px';
+}
+function hideTooltip() { tt.style.display = 'none'; }
+
+/* ---------- catalog sidebar ---------- */
+function buildCatalog() {
+  const nav = document.getElementById('catalog');
+  nav.replaceChildren();
+  const cats = [];
+  for (const m of DATA.metrics) if (!cats.includes(m.category)) cats.push(m.category);
+  for (const cat of cats) {
+    const h = document.createElement('h2'); h.textContent = cat; nav.appendChild(h);
+    for (const m of DATA.metrics.filter(x => x.category === cat)) {
+      const b = document.createElement('button');
+      b.className = 'item'; b.type = 'button';
+      b.setAttribute('aria-pressed', state.metric === m.id);
+      const lbl = document.createElement('span'); lbl.textContent = m.label;
+      const badges = document.createElement('span'); badges.className = 'badges';
+      for (const s of Object.keys(m.series)) { const bd = document.createElement('span'); bd.className = 'badge'; bd.textContent = s; badges.appendChild(bd); }
+      b.append(lbl, badges);
+      b.addEventListener('click', () => { state.metric = m.id; render(); });
+      nav.appendChild(b);
+    }
+  }
+  const h = document.createElement('h2'); h.textContent = 'Segments'; nav.appendChild(h);
+  for (const [id, sv] of Object.entries(SEG_VIEWS)) {
+    const b = document.createElement('button');
+    b.className = 'item'; b.type = 'button';
+    b.setAttribute('aria-pressed', state.metric === id);
+    const lbl = document.createElement('span'); lbl.textContent = sv.label;
+    const badges = document.createElement('span'); badges.className = 'badges';
+    const bd = document.createElement('span'); bd.className = 'badge'; bd.textContent = sv.src; badges.appendChild(bd);
+    b.append(lbl, badges);
+    b.addEventListener('click', () => { state.metric = id; render(); });
+    nav.appendChild(b);
+  }
+}
+
+/* ---------- filter row ---------- */
+function segControl(labelText, options, current, onPick, disabledSet) {
+  const g = document.createElement('div'); g.className = 'group';
+  if (labelText) { const l = document.createElement('label'); l.className = 'glabel'; l.textContent = labelText; g.appendChild(l); }
+  const wrap = document.createElement('div'); wrap.className = 'seg';
+  for (const [val, text] of options) {
+    const b = document.createElement('button'); b.type = 'button'; b.textContent = text;
+    b.setAttribute('aria-pressed', val === current);
+    if (disabledSet && disabledSet.has(val)) b.disabled = true;
+    b.addEventListener('click', () => onPick(val));
+    wrap.appendChild(b);
+  }
+  g.appendChild(wrap);
+  return g;
+}
+
+function buildFilters() {
+  const f = document.getElementById('filters');
+  f.replaceChildren();
+  const isSeg = !!SEG_VIEWS[state.metric];
+
+  if (!isSeg) {
+    const avail = availableSources(state.metric);
+    const dis = new Set(['MS', 'UBS', 'Both'].filter(s => s === 'Both' ? avail.length < 2 : !avail.includes(s)));
+    f.appendChild(segControl('Source', [['MS', 'MS'], ['UBS', 'UBS'], ['Both', 'Both']], state.source, v => { state.source = v; render(); }, dis));
+  }
+
+  f.appendChild(segControl('Range', [['all', 'All'], ['y2015', '2015 →'], ['y2020', '2020 →'], ['fcst', '2023 →']], state.range, v => { state.range = v; render(); }));
+
+  if (!isSeg) {
+    const g = document.createElement('div'); g.className = 'group';
+    const l = document.createElement('label'); l.className = 'glabel'; l.textContent = 'Correlate with';
+    const sel = document.createElement('select'); sel.className = 'ctl';
+    const o0 = document.createElement('option'); o0.value = ''; o0.textContent = 'None'; sel.appendChild(o0);
+    for (const m of DATA.metrics) {
+      if (m.id === state.metric) continue;
+      const o = document.createElement('option'); o.value = m.id; o.textContent = m.label;
+      if (m.id === state.compare) o.selected = true;
+      sel.appendChild(o);
+    }
+    sel.addEventListener('change', () => { state.compare = sel.value; render(); });
+    g.append(l, sel); f.appendChild(g);
+
+    if (state.compare) {
+      const sameUnit = METRICS[state.metric].unit === METRICS[state.compare].unit;
+      const dis = new Set(sameUnit ? [] : ['overlay']);
+      if (dis.has(state.mode)) state.mode = 'panels';
+      f.appendChild(segControl('as', [['panels', 'Paired panels'], ['overlay', 'Overlay'], ['indexed', 'Indexed'], ['scatter', 'Scatter']], state.mode, v => { state.mode = v; render(); }, dis));
+    }
+  }
+
+  f.appendChild(segControl('', [['off', 'Chart'], ['on', 'Chart + table']], state.table ? 'on' : 'off', v => { state.table = v === 'on'; render(); }));
+}
+
+/* ---------- cards ---------- */
+let exhibitNo = 0;
+function chartCard(parent, title, unitText, legendItems, footnote) {
+  exhibitNo += 1;
+  const card = document.createElement('div'); card.className = 'card';
+  const head = document.createElement('div'); head.className = 'cardhead';
+  const h = document.createElement('h3');
+  const ex = document.createElement('span'); ex.className = 'exh'; ex.textContent = `Exhibit ${exhibitNo}: `;
+  h.appendChild(ex); h.appendChild(document.createTextNode(title));
+  const u = document.createElement('span'); u.className = 'unit'; u.textContent = unitText;
+  head.append(h, u);
+  if (legendItems && legendItems.length >= 2) {
+    const lg = document.createElement('div'); lg.className = 'legend';
+    for (const it of legendItems) {
+      const k = document.createElement('span'); k.className = 'key';
+      const sw = document.createElement('span'); sw.className = it.line ? 'swatch-line' : 'swatch-rect'; sw.style.background = it.color;
+      const t = document.createElement('span'); t.textContent = it.name;
+      k.append(sw, t); lg.appendChild(k);
+    }
+    head.appendChild(lg);
+  }
+  card.appendChild(head);
+  const box = document.createElement('div'); box.className = 'chartbox'; card.appendChild(box);
+  const fn = document.createElement('div'); fn.className = 'footnote'; fn.textContent = footnote; card.appendChild(fn);
+  parent.appendChild(card);
+  return { card, box, unitEl: u };
+}
+
+function sourceFootnote(sources) {
+  const parts = [];
+  if (sources.includes('MS')) parts.push('Morgan Stanley Research model (5 May 2026)');
+  if (sources.includes('UBS')) parts.push('UBS estimates model (9 Apr 2026)');
+  return 'Source: Company data, ' + parts.join('; ') + '. Dashed / lighter marks are estimates.';
+}
+
+function tableCard(parent, title, series, unit, yearDomain, scale) {
+  const card = document.createElement('div'); card.className = 'card';
+  const h = document.createElement('h3');
+  const uniform = series.every(s => (s.unit || unit) === unit);
+  h.textContent = title + ' — data' + (unit && uniform ? ` (${unitLabel(unit, scale)})` : ''); card.appendChild(h);
+  const tbl = document.createElement('table'); tbl.className = 'dataview';
+  const thr = document.createElement('tr');
+  const th0 = document.createElement('th'); th0.textContent = 'Series'; thr.appendChild(th0);
+  for (const y of yearDomain) { const th = document.createElement('th'); th.textContent = y; thr.appendChild(th); }
+  tbl.appendChild(thr);
+  for (const s of series) {
+    const tr = document.createElement('tr');
+    const td0 = document.createElement('td'); td0.textContent = s.name; tr.appendChild(td0);
+    for (const y of yearDomain) {
+      const td = document.createElement('td');
+      td.textContent = fmt(valAt(s, y), s.unit || unit, scale);
+      tr.appendChild(td);
+    }
+    tbl.appendChild(tr);
+  }
+  const wrap = document.createElement('div'); wrap.style.overflowX = 'auto'; wrap.appendChild(tbl);
+  card.appendChild(wrap);
+  parent.appendChild(card);
+}
+
+/* ---------- top-level render ---------- */
+function yearDomainFor(seriesList) {
+  const from = RANGES[state.range];
+  const ys = new Set();
+  for (const s of seriesList) s.years.forEach((y, i) => { if (y >= from && s.values[i] != null) ys.add(y); });
+  return [...ys].sort((p, q) => p - q);
+}
+
+function render() {
+  exhibitNo = 0;
+  buildCatalog();
+  buildFilters();
+  const root = document.getElementById('charts');
+  root.replaceChildren();
+  hideTooltip();
+
+  const segView = SEG_VIEWS[state.metric];
+  if (segView) return renderSegments(root, segView);
+
+  const m = METRICS[state.metric];
+  let srcs = state.source === 'Both' ? ['MS', 'UBS'] : [state.source];
+  srcs = srcs.filter(s => m.series[s]);
+  if (!srcs.length) { srcs = availableSources(m.id); const n = document.createElement('div'); n.className = 'note-inline'; n.textContent = `${m.label} is only in the ${srcs.join('/')} model — showing that instead.`; root.appendChild(n); }
+
+  const from = RANGES[state.range];
+  const primary = metricSeries(m.id, srcs).map(s => clipToRange(s, from));
+  const yd = yearDomainFor(primary);
+  const multi = primary.length >= 2;
+  const kind = (!multi && (m.unit === 'rmbmn')) ? 'columns' : 'line';
+
+  if (state.compare && METRICS[state.compare]) {
+    const cm = METRICS[state.compare];
+    const csrcs = srcs.filter(s => cm.series[s]).length ? srcs.filter(s => cm.series[s]) : availableSources(cm.id);
+    const comp = metricSeries(cm.id, csrcs).map(s => clipToRange(s, from));
+
+    if (state.mode === 'scatter') {
+      // scatter uses one source (first common); MS preferred
+      const src = srcs.find(s => cm.series[s]) || csrcs[0];
+      const a = clipToRange(metricSeries(m.id, [src])[0], from);
+      const b = clipToRange(metricSeries(cm.id, [src])[0], from);
+      const common = a.years.filter(y => valAt(a, y) != null && valAt(b, y) != null);
+      const { box } = chartCard(root, `${m.label} vs ${cm.label} (${src} model, ${common[0]}–${common[common.length - 1]})`, '', [], sourceFootnote([src]) + ' Each dot is one fiscal year; lighter dots are estimate years.');
+      renderScatter(box, a, b, src);
+      if (state.table) tableCard(root, `${m.label} vs ${cm.label}`, [ { ...a, name: m.label }, { ...b, name: cm.label } ], m.unit, yearDomainFor([a, b]));
+      return;
+    }
+
+    if (state.mode === 'indexed' || state.mode === 'overlay') {
+      const all = [
+        ...primary.map(s => ({ ...s, name: multi || csrcs.length > 1 ? `${m.label} (${s.name})` : m.label })),
+        ...comp.map(s => ({ ...s, name: multi || csrcs.length > 1 ? `${cm.label} (${s.name})` : cm.label, color: css('--s3') })),
+      ];
+      // distinct colors: primary slots 1/2 already; comp gets 3/4
+      if (comp.length === 2) { all[all.length - 2].color = css('--s3'); all[all.length - 1].color = css('--s4'); }
+      let plot = all, unit = m.unit, title = `${m.label} vs ${cm.label}`;
+      if (state.mode === 'indexed') {
+        plot = all.map(s => {
+          const i0 = s.values.findIndex((v, i) => v != null && s.years[i] >= from && v !== 0);
+          const base = i0 >= 0 ? s.values[i0] : null;
+          return { ...s, unit: 'idx', values: s.values.map(v => (v == null || base == null) ? null : (v / base) * 100 ) };
+        });
+        unit = 'idx';
+        title += ' — indexed';
+      }
+      const ydAll = yearDomainFor(plot);
+      const { box } = chartCard(root, title, unitLabel(unit), plot.map(s => ({ name: s.name, color: s.color, line: true })), sourceFootnote([...new Set([...srcs, ...csrcs])]));
+      renderTimeseries(box, { kind: 'line', series: plot, unit, height: 380, yearDomain: ydAll });
+      if (state.table) tableCard(root, title, plot, unit, ydAll);
+      return;
+    }
+
+    // paired panels (default): shared x domain
+    const ydAll = yearDomainFor([...primary, ...comp]);
+    const spec1 = { kind, series: primary, unit: m.unit, height: 320, yearDomain: ydAll };
+    const c1 = chartCard(root, m.label, unitLabel(m.unit), multi ? primary.map(s => ({ name: DATA.sources[s.name].name, color: s.color, line: kind === 'line' })) : [], sourceFootnote(srcs));
+    renderTimeseries(c1.box, spec1);
+    if (spec1.scaleUsed === 'bn') c1.unitEl.textContent = unitLabel(m.unit, 'bn');
+
+    const ckind = (comp.length < 2 && cm.unit === 'rmbmn') ? 'columns' : 'line';
+    const spec2 = { kind: ckind, series: comp, unit: cm.unit, height: 250, yearDomain: ydAll };
+    const c2 = chartCard(root, cm.label, unitLabel(cm.unit), comp.length >= 2 ? comp.map(s => ({ name: DATA.sources[s.name].name, color: s.color, line: ckind === 'line' })) : [], sourceFootnote(csrcs));
+    renderTimeseries(c2.box, spec2);
+    if (spec2.scaleUsed === 'bn') c2.unitEl.textContent = unitLabel(cm.unit, 'bn');
+
+    if (state.table) {
+      tableCard(root, `${m.label} & ${cm.label}`, [
+        ...primary.map(s => ({ ...s, name: `${m.label} (${s.name})`, unit: m.unit })),
+        ...comp.map(s => ({ ...s, name: `${cm.label} (${s.name})`, unit: cm.unit })),
+      ], m.unit, ydAll);
+    }
+    return;
+  }
+
+  /* single metric */
+  const spec = { kind, series: primary, unit: m.unit, height: 400, yearDomain: yd };
+  const c = chartCard(root, m.label, unitLabel(m.unit), multi ? primary.map(s => ({ name: DATA.sources[s.name].name, color: s.color, line: kind === 'line' })) : [], sourceFootnote(srcs));
+  renderTimeseries(c.box, spec);
+  if (spec.scaleUsed === 'bn') c.unitEl.textContent = unitLabel(m.unit, 'bn');
+  if (state.table) tableCard(root, m.label, primary, m.unit, yd, spec.scaleUsed);
+}
+
+/* ---------- segment views ---------- */
+function renderSegments(root, sv) {
+  const from = RANGES[state.range];
+  const meta = DATA.sources[sv.src];
+  const slots = SEG_SLOTS();
+
+  if (sv.kind === 'stack' || sv.kind === 'mix') {
+    const raw = sv.src === 'MS' ? DATA.segments.MS.revenue : DATA.segments.UBS;
+    const names = Object.keys(raw).filter(n => n !== 'Eliminations');
+    let series = names.map((n, i) => ({ name: n, color: slots[i % slots.length], years: meta.years.slice(0, raw[n].length), values: raw[n], estFrom: 2026 }));
+    if (sv.kind === 'mix') {
+      const total = METRICS.revenue.series[sv.src];
+      series = series.map(s => ({ ...s, values: s.values.map((v, i) => (v == null || total[i] == null || total[i] === 0) ? null : v / total[i]) }));
+    }
+    series = series.map(s => clipToRange(s, from));
+    const yd = yearDomainFor(series);
+    const unit = sv.kind === 'mix' ? 'pct' : 'rmbmn';
+    const title = sv.kind === 'mix' ? `Revenue mix by segment (${sv.src})` : `Revenue by segment (${sv.src})`;
+    const { box, unitEl } = chartCard(root, title, unitLabel(unit), series.map(s => ({ name: s.name, color: s.color })), sourceFootnote([sv.src]) + ' Excludes inter-segment eliminations' + (sv.kind === 'mix' ? '; shown as % of total group revenue (segments therefore sum to slightly over 100%).' : '.'));
+    const spec = { kind: 'stack', series, unit, height: 420, yearDomain: yd };
+    renderTimeseries(box, spec);
+    if (spec.scaleUsed === 'bn') unitEl.textContent = unitLabel(unit, 'bn');
+    if (state.table) tableCard(root, title, series, unit, yd, spec.scaleUsed);
+    return;
+  }
+
+  // gross margin lines (MS)
+  const gm = DATA.segments.MS.grossMargin;
+  const names = Object.keys(gm);
+  const series = names.map((n, i) => clipToRange({ name: n, color: slots[i % slots.length], years: meta.years.slice(0, gm[n].length), values: gm[n], estFrom: 2026, unit: 'pct' }, from));
+  const yd = yearDomainFor(series);
+  const { box } = chartCard(root, 'Gross margin by segment (MS)', unitLabel('pct'), series.map(s => ({ name: s.name, color: s.color, line: true })), sourceFootnote(['MS']));
+  renderTimeseries(box, { kind: 'line', series, unit: 'pct', height: 420, yearDomain: yd });
+  if (state.table) tableCard(root, 'Gross margin by segment (MS)', series, 'pct', yd);
+}
+
+let rsz;
+window.addEventListener('resize', () => { clearTimeout(rsz); rsz = setTimeout(render, 150); });
+render();
+</script>
+</body>
+</html>
