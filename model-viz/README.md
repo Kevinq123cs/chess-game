@@ -48,5 +48,21 @@ Requires `openpyxl` (`pip3 install --user openpyxl`).
 7. Run the build; `build.py` raises a clear `KeyError` naming any label it
    can't find — fix those labels and rerun.
 
+## Chinese / English toggle & section summaries
+
+The app has an EN/中文 toggle in the masthead (remembered in localStorage).
+UI chrome is translated by the template itself; data strings come from the
+config's optional `*Zh` fields — `companyZh`, `nameZh`/`asOfZh` on sources,
+`labelZh` on metrics, `categories` (en→zh map), the 3-tuple segment series
+form `(en, zh, sheetLabel)`, `noteZh`, and on SOTP: `labelZh`, `nameZh`,
+`basisZh` (same `{CELL:fmt}` refs as `basis`). Omit any of them and that
+string simply stays in English.
+
+`summaries` holds a short bilingual explainer per section — keyed by category
+name plus `segments` and `sotp` — rendered in an "About this section" card
+above the charts. This is where the investment logic lives (e.g. how each
+bank builds its SOTP and what drives the AIDC valuation gap), so rewrite
+these for each new company.
+
 The output is fully self-contained (data embedded) — open it directly or serve
 it; no dependencies at view time.

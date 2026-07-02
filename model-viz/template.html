@@ -45,7 +45,7 @@
   }
   * { box-sizing: border-box; margin: 0; }
   body.viz-root {
-    font-family: system-ui, -apple-system, "Segoe UI", sans-serif;
+    font-family: system-ui, -apple-system, "Segoe UI", "PingFang SC", "Microsoft YaHei", sans-serif;
     background: var(--page); color: var(--ink-1);
     font-size: 13px; line-height: 1.45;
   }
@@ -56,7 +56,8 @@
   }
   header.masthead h1 { font-size: 19px; font-weight: 650; }
   header.masthead .ticker { color: var(--ink-2); font-size: 13px; }
-  header.masthead .srcnote { margin-left: auto; color: var(--ink-3); font-size: 12px; }
+  header.masthead .hd-right { margin-left: auto; display: flex; align-items: center; gap: 14px; }
+  header.masthead .srcnote { color: var(--ink-3); font-size: 12px; }
 
   .layout { display: flex; min-height: calc(100vh - 60px); }
 
@@ -105,6 +106,16 @@
     padding: 4px 8px; max-width: 210px;
   }
 
+  .summary {
+    background: var(--surface-1); border: 1px solid var(--border); border-radius: 10px;
+    padding: 10px 14px 11px; margin-bottom: 14px;
+  }
+  .summary .stitle {
+    font-size: 11px; font-weight: 600; letter-spacing: .06em; text-transform: uppercase;
+    color: var(--ink-3); margin-bottom: 3px;
+  }
+  .summary p { color: var(--ink-2); font-size: 12.5px; max-width: 960px; }
+
   .card {
     background: var(--surface-1); border: 1px solid var(--border); border-radius: 10px;
     padding: 16px 18px 12px; margin-bottom: 14px;
@@ -121,7 +132,7 @@
   .chartbox { position: relative; }
   .chartbox svg { display: block; }
   .chartbox [tabindex]:focus { outline: none; } /* crosshair + tooltip serve as the focus indicator */
-  svg text { font-family: system-ui, -apple-system, "Segoe UI", sans-serif; }
+  svg text { font-family: system-ui, -apple-system, "Segoe UI", "PingFang SC", "Microsoft YaHei", sans-serif; }
 
   /* stat tiles (SOTP headline row) */
   .tiles { display: flex; gap: 28px; flex-wrap: wrap; padding: 8px 0 4px; }
@@ -155,7 +166,10 @@
 <header class="masthead">
   <h1 id="hd-title">Model Explorer</h1>
   <span class="ticker" id="hd-ticker"></span>
-  <span class="srcnote" id="hd-srcnote"></span>
+  <span class="hd-right">
+    <span class="srcnote" id="hd-srcnote"></span>
+    <span class="seg" id="lang-toggle"></span>
+  </span>
 </header>
 
 <div class="layout">
@@ -180,13 +194,74 @@ const css = name => getComputedStyle(document.body).getPropertyValue(name).trim(
 const SLOTS = () => [css('--s1'), css('--s2'), css('--s3'), css('--s4'), css('--s5'), css('--s6')];
 const COLORS = () => Object.fromEntries(SRC_KEYS.map((k, i) => [k, SLOTS()[i]]));
 
-/* masthead */
-const EST0 = Math.min(...SRC_KEYS.map(k => DATA.sources[k].estFrom));
-document.title = `${DATA.company} — Model Explorer`;
-document.getElementById('hd-title').textContent = `${DATA.company} — Model Explorer`;
-document.getElementById('hd-ticker').textContent = `${DATA.tickers} · ${DATA.unitNote}`;
-document.getElementById('hd-srcnote').textContent =
-  SRC_KEYS.map(k => `${k} model as of ${DATA.sources[k].asOf}`).join(' · ') + ` · ${EST0}E onwards are estimates`;
+/* ---------- i18n ---------- */
+const UI = {
+  en: {
+    explorer: 'Model Explorer',
+    unitNote: c => `${c} mn unless stated`,
+    modelAsOf: (k, d) => `${k} model as of ${d}`,
+    estOnwards: y => `${y}E onwards are estimates`,
+    source: 'Source', range: 'Range', all: 'All', correlate: 'Correlate with', none: 'None', as: 'as',
+    panels: 'Paired panels', overlay: 'Overlay', indexed: 'Indexed', scatter: 'Scatter',
+    chart: 'Chart', chartTable: 'Chart + table', both: 'Both',
+    exhibit: n => `Exhibit ${n}: `,
+    estimatesArrow: 'estimates →',
+    sourceLine: parts => 'Source: Company data, ' + parts.join('; ') + '.',
+    modelParen: (n, d) => `${n} model (${d})`,
+    estMarks: 'Dashed / lighter marks are estimates.',
+    onlyIn: (l, s) => `${l} is only in the ${s} model — showing that instead.`,
+    vs: ' vs ', indexedSuffix: ' — indexed',
+    scatterTitle: (a, b, src, y0, y1) => `${a} vs ${b} (${src} model, ${y0}–${y1})`,
+    scatterNote: ' Each dot is one fiscal year; lighter dots are estimate years.',
+    dataSuffix: ' — data', series: 'Series',
+    segRev: 'Revenue by segment', segMix: 'Revenue mix by segment', segGM: 'Gross margin by segment',
+    segsHeader: 'Segments', mixNote: ' Shown as % of total group revenue.',
+    sotpHeader: 'Valuation — SOTP', sotpItem: 'Sum-of-the-parts',
+    sotpTiles: (n, d) => `${n} — sum-of-the-parts (${d})`,
+    sotpComp: 'SOTP equity value composition',
+    sotpHover: ' Hover a segment for the valuation basis.',
+    sotpDetail: (n, c) => `${n} — SOTP detail (${c} mn)`,
+    part: 'Part', basisCol: 'Valuation basis', valueCol: c => `Value (${c} mn)`, pctTotal: '% of total',
+    prior: 'Prior est.', delta: 'Δ', totalEquity: 'Total equity value',
+    valueRow: 'Value', basisRow: 'Basis',
+    about: 'About this section',
+    units: { mn: c => `${c} mn`, bn: c => `${c} bn`, pct: '%', x: 'multiple (x)', days: 'days', ps: c => `${c} / share`, idx: 'indexed, base = 100' },
+  },
+  zh: {
+    explorer: '模型浏览器',
+    unitNote: c => `除非另有说明，单位为${c === 'RMB' ? '人民币' : c}百万`,
+    modelAsOf: (k, d) => `${k}模型截至${d}`,
+    estOnwards: y => `${y}E起为预测值`,
+    source: '来源', range: '区间', all: '全部', correlate: '关联指标', none: '无', as: '方式',
+    panels: '上下双图', overlay: '叠加', indexed: '指数化', scatter: '散点',
+    chart: '图表', chartTable: '图表 + 数据', both: '两者',
+    exhibit: n => `图表 ${n}：`,
+    estimatesArrow: '预测 →',
+    sourceLine: parts => '资料来源：公司数据、' + parts.join('；') + '。',
+    modelParen: (n, d) => `${n}模型（${d}）`,
+    estMarks: '虚线/浅色为预测值。',
+    onlyIn: (l, s) => `${l}仅见于${s}模型——已自动显示该模型。`,
+    vs: ' 对比 ', indexedSuffix: '——指数化',
+    scatterTitle: (a, b, src, y0, y1) => `${a} 对比 ${b}（${src}模型，${y0}–${y1}）`,
+    scatterNote: ' 每个点代表一个财年；浅色为预测年份。',
+    dataSuffix: '——数据', series: '系列',
+    segRev: '分部收入', segMix: '分部收入占比', segGM: '分部毛利率',
+    segsHeader: '业务分部', mixNote: ' 以占集团总收入的百分比表示。',
+    sotpHeader: '估值——分部加总', sotpItem: '分部加总估值 (SOTP)',
+    sotpTiles: (n, d) => `${n}——分部加总估值（${d}）`,
+    sotpComp: 'SOTP 股权价值构成',
+    sotpHover: ' 悬停色块可查看估值依据。',
+    sotpDetail: (n, c) => `${n}——SOTP 明细（${c === 'RMB' ? '人民币' : c}百万）`,
+    part: '部分', basisCol: '估值依据', valueCol: c => '价值（百万）', pctTotal: '占比',
+    prior: '前次估计', delta: 'Δ', totalEquity: '股权价值合计',
+    valueRow: '价值', basisRow: '依据',
+    about: '本节说明',
+    units: { mn: c => (c === 'RMB' ? '人民币' : c) + '百万', bn: c => (c === 'RMB' ? '人民币' : c) + '十亿', pct: '%', x: '倍 (x)', days: '天', ps: () => '元/股', idx: '指数化，基期 = 100' },
+  },
+};
+const T = () => UI[state.lang];
+const L = x => (x && typeof x === 'object' && !Array.isArray(x)) ? (x[state.lang] || x.en) : x;
+const segName = n => (state.lang === 'zh' && DATA.segNames && DATA.segNames[n]) || n;
 
 /* segment views derived from the data */
 const SEG_VIEWS = {};
@@ -194,10 +269,10 @@ for (const src of SRC_KEYS) {
   const sg = (DATA.segments || {})[src];
   if (!sg) continue;
   if (sg.revenue) {
-    SEG_VIEWS['seg_rev_' + src] = { label: 'Revenue by segment', src, kind: 'stack' };
-    SEG_VIEWS['seg_mix_' + src] = { label: 'Revenue mix by segment', src, kind: 'mix' };
+    SEG_VIEWS['seg_rev_' + src] = { key: 'segRev', src, kind: 'stack' };
+    SEG_VIEWS['seg_mix_' + src] = { key: 'segMix', src, kind: 'mix' };
   }
-  if (sg.grossMargin) SEG_VIEWS['seg_gm_' + src] = { label: 'Gross margin by segment', src, kind: 'lines' };
+  if (sg.grossMargin) SEG_VIEWS['seg_gm_' + src] = { key: 'segGM', src, kind: 'lines' };
 }
 const HAS_SOTP = !!(DATA.sotp && Object.keys(DATA.sotp.sources).length);
 
@@ -208,10 +283,33 @@ const state = {
   compare: '',
   mode: 'panels',                                   // panels | overlay | indexed | scatter
   table: false,
+  lang: (() => { try { return localStorage.getItem('mv-lang') || 'en'; } catch (e) { return 'en'; } })(),
 };
 
+const EST0 = Math.min(...SRC_KEYS.map(k => DATA.sources[k].estFrom));
 const MIN_YEAR = Math.min(...SRC_KEYS.map(k => DATA.sources[k].years[0]));
 const RANGES = { all: MIN_YEAR, y10: EST0 - 10, y5: EST0 - 5, fcst: EST0 - 3 };
+
+/* ---------- masthead ---------- */
+function renderMasthead() {
+  document.title = `${L(DATA.company)} — ${T().explorer}`;
+  document.getElementById('hd-title').textContent = `${L(DATA.company)} — ${T().explorer}`;
+  document.getElementById('hd-ticker').textContent = `${DATA.tickers} · ${T().unitNote(CCY)}`;
+  document.getElementById('hd-srcnote').textContent =
+    SRC_KEYS.map(k => T().modelAsOf(k, L(DATA.sources[k].asOf))).join(' · ') + ' · ' + T().estOnwards(EST0);
+  const lt = document.getElementById('lang-toggle');
+  lt.replaceChildren();
+  for (const [val, text] of [['en', 'EN'], ['zh', '中文']]) {
+    const b = document.createElement('button'); b.type = 'button'; b.textContent = text;
+    b.setAttribute('aria-pressed', state.lang === val);
+    b.addEventListener('click', () => {
+      state.lang = val;
+      try { localStorage.setItem('mv-lang', val); } catch (e) {}
+      renderMasthead(); render();
+    });
+    lt.appendChild(b);
+  }
+}
 
 /* ---------- formatting ---------- */
 function fmt(v, unit, scale) {
@@ -230,11 +328,16 @@ function fmt(v, unit, scale) {
   }
 }
 function unitLabel(unit, scale) {
-  return {
-    rmbmn: scale === 'bn' ? `${CCY} bn` : `${CCY} mn`,
-    pct: '%', x: 'multiple (x)', days: 'days',
-    rmb: `${CCY} / share`, idx: 'indexed, base = 100',
-  }[unit] || '';
+  const u = T().units;
+  switch (unit) {
+    case 'rmbmn': return scale === 'bn' ? u.bn(CCY) : u.mn(CCY);
+    case 'pct':   return u.pct;
+    case 'x':     return u.x;
+    case 'days':  return u.days;
+    case 'rmb':   return u.ps(CCY);
+    case 'idx':   return u.idx;
+    default:      return '';
+  }
 }
 
 /* ---------- series assembly ---------- */
@@ -327,7 +430,7 @@ function renderTimeseries(box, spec) {
     if (idx > 0) {
       const xSep = MARGIN.left + band * idx;
       el('line', { x1: xSep, x2: xSep, y1: MARGIN.top, y2: MARGIN.top + ih, stroke: css('--grid'), 'stroke-width': 1 }, svg);
-      el('text', { x: xSep + 4, y: MARGIN.top + 9, 'font-size': 10, fill: css('--ink-3') }, svg).textContent = 'estimates →';
+      el('text', { x: xSep + 4, y: MARGIN.top + 9, 'font-size': 10, fill: css('--ink-3') }, svg).textContent = T().estimatesArrow;
     }
   }
 
@@ -419,7 +522,7 @@ function renderTimeseries(box, spec) {
     hair.setAttribute('x1', xPix(i)); hair.setAttribute('x2', xPix(i));
     hair.setAttribute('visibility', 'visible');
     const rows = spec.series
-      .map(s => ({ name: spec.kind === 'stack' || spec.series.length > 1 ? s.name : (METRICS[state.metric] ? METRICS[state.metric].label : s.name), color: s.color, v: valAt(s, years[i]) }))
+      .map(s => ({ name: spec.kind === 'stack' || spec.series.length > 1 ? s.name : (METRICS[state.metric] ? L(METRICS[state.metric].label) : s.name), color: s.color, v: valAt(s, years[i]) }))
       .filter(r => r.v != null);
     const est = spec.series.some(s => s.estFrom && years[i] >= s.estFrom);
     showTooltip(box, xPix(i), MARGIN.top, `${years[i]}${est ? 'E' : ''}`, rows.map(r => ({ ...r, text: fmt(r.v, spec.unit, scale) })));
@@ -479,9 +582,9 @@ function renderScatter(box, a, b, sourceName) {
   }
   el('line', { x1: M.left, x2: W - M.right, y1: M.top + ih, y2: M.top + ih, stroke: css('--baseline'), 'stroke-width': 1 }, svg);
   el('text', { x: M.left + iw / 2, y: H - 5, 'text-anchor': 'middle', 'font-size': 11, fill: css('--ink-2') }, svg)
-    .textContent = `${METRICS[state.metric].label} (${unitLabel(a.unit, xScale)})`;
+    .textContent = `${L(METRICS[state.metric].label)} (${unitLabel(a.unit, xScale)})`;
   const yl = el('text', { x: 14, y: M.top + ih / 2, 'font-size': 11, fill: css('--ink-2'), transform: `rotate(-90 14 ${M.top + ih / 2})`, 'text-anchor': 'middle' }, svg);
-  yl.textContent = `${METRICS[state.compare].label} (${unitLabel(b.unit, yScale)})`;
+  yl.textContent = `${L(METRICS[state.compare].label)} (${unitLabel(b.unit, yScale)})`;
 
   const c = css('--s1');
   pts.forEach((p, idx) => {
@@ -493,8 +596,8 @@ function renderScatter(box, a, b, sourceName) {
     }
     const hit = el('circle', { cx: X(p.va), cy: Y(p.vb), r: 14, fill: 'transparent', tabindex: 0 }, svg);
     const showP = () => showTooltip(box, X(p.va), Y(p.vb) - 10, `${p.y}${p.est ? 'E' : ''} · ${sourceName}`, [
-      { name: METRICS[state.metric].label, color: c, text: fmt(p.va, a.unit, xScale) },
-      { name: METRICS[state.compare].label, color: c, text: fmt(p.vb, b.unit, yScale) },
+      { name: L(METRICS[state.metric].label), color: c, text: fmt(p.va, a.unit, xScale) },
+      { name: L(METRICS[state.compare].label), color: c, text: fmt(p.vb, b.unit, yScale) },
     ]);
     hit.addEventListener('pointerenter', showP);
     hit.addEventListener('focus', showP);
@@ -511,17 +614,16 @@ function renderSotp(root) {
   if (!keys.length) { keys.push(...Object.keys(so.sources)); }
   const groupColor = {};
   so.groups.forEach((g, i) => { groupColor[g.id] = SLOTS()[i % 6]; });
-  const groupLabel = Object.fromEntries(so.groups.map(g => [g.id, g.label]));
 
   /* headline stat tiles per bank */
   for (const k of keys) {
     const card = document.createElement('div'); card.className = 'card';
-    const h = document.createElement('h3'); h.textContent = `${DATA.sources[k].name} — sum-of-the-parts (${DATA.sources[k].asOf})`;
+    const h = document.createElement('h3'); h.textContent = T().sotpTiles(L(DATA.sources[k].name), L(DATA.sources[k].asOf));
     card.appendChild(h);
     const row = document.createElement('div'); row.className = 'tiles';
     for (const st of so.sources[k].stats) {
       const t = document.createElement('div'); t.className = 'tile';
-      const l = document.createElement('div'); l.className = 'tlabel'; l.textContent = st.label;
+      const l = document.createElement('div'); l.className = 'tlabel'; l.textContent = L(st.label);
       const v = document.createElement('div'); v.className = 'tvalue'; v.textContent = st.value;
       t.append(l, v); row.appendChild(t);
     }
@@ -532,31 +634,31 @@ function renderSotp(root) {
   /* composition chart: one horizontal stacked bar per bank */
   const legend = so.groups
     .filter(g => keys.some(k => so.sources[k].parts.some(p => p.group === g.id)))
-    .map(g => ({ name: g.label, color: groupColor[g.id] }));
-  const { box } = chartCard(root, 'SOTP equity value composition', `${CCY} bn`, legend, sourceFootnote(keys) + ' Hover a segment for the valuation basis.');
+    .map(g => ({ name: L(g.label), color: groupColor[g.id] }));
+  const { box } = chartCard(root, T().sotpComp, T().units.bn(CCY), legend, sourceFootnote(keys) + T().sotpHover);
   renderSotpBars(box, keys, so, groupColor);
 
   /* parts tables (the data twin — always visible) */
   for (const k of keys) {
     const s = so.sources[k];
     const card = document.createElement('div'); card.className = 'card';
-    const h = document.createElement('h3'); h.textContent = `${DATA.sources[k].name} — SOTP detail (${CCY} mn)`;
+    const h = document.createElement('h3'); h.textContent = T().sotpDetail(L(DATA.sources[k].name), CCY);
     card.appendChild(h);
     const tbl = document.createElement('table'); tbl.className = 'dataview';
     const hasOld = s.parts.some(p => p.old != null);
     const thr = document.createElement('tr');
-    for (const c of ['Part', 'Valuation basis', `Value (${CCY} mn)`, '% of total', ...(hasOld ? ['Prior est.', 'Δ'] : [])]) {
+    for (const c of [T().part, T().basisCol, T().valueCol(CCY), T().pctTotal, ...(hasOld ? [T().prior, T().delta] : [])]) {
       const th = document.createElement('th'); th.textContent = c; thr.appendChild(th);
     }
     thr.children[1].style.textAlign = 'left';
     tbl.appendChild(thr);
     for (const p of s.parts) {
       const tr = document.createElement('tr');
-      const td0 = document.createElement('td'); td0.textContent = p.name;
+      const td0 = document.createElement('td'); td0.textContent = L(p.name);
       const swatch = document.createElement('span');
       swatch.style.cssText = `display:inline-block;width:9px;height:9px;border-radius:2px;margin-right:6px;background:${groupColor[p.group]}`;
       td0.prepend(swatch);
-      const td1 = document.createElement('td'); td1.className = 'txt'; td1.textContent = p.basis;
+      const td1 = document.createElement('td'); td1.className = 'txt'; td1.textContent = L(p.basis);
       const td2 = document.createElement('td'); td2.textContent = fmt(p.value, 'rmbmn');
       const td3 = document.createElement('td'); td3.textContent = s.total ? (p.value / s.total * 100).toFixed(1) + '%' : '–';
       tr.append(td0, td1, td2, td3);
@@ -568,7 +670,7 @@ function renderSotp(root) {
       tbl.appendChild(tr);
     }
     const tr = document.createElement('tr'); tr.className = 'total';
-    const c0 = document.createElement('td'); c0.textContent = 'Total equity value';
+    const c0 = document.createElement('td'); c0.textContent = T().totalEquity;
     const c1 = document.createElement('td');
     const c2 = document.createElement('td'); c2.textContent = fmt(s.total, 'rmbmn');
     const c3 = document.createElement('td'); c3.textContent = '100%';
@@ -606,7 +708,7 @@ function renderSotpBars(box, keys, so, groupColor) {
     const s = so.sources[k];
     const yMid = 8 + r * rowH + rowH / 2 - 4;
     el('text', { x: left - 10, y: yMid + 4, 'text-anchor': 'end', 'font-size': 12, 'font-weight': 600, fill: css('--ink-2') }, svg)
-      .textContent = DATA.sources[k].name;
+      .textContent = L(DATA.sources[k].name);
     let cum = 0;
     for (const p of s.parts) {
       const x0 = X(cum), x1 = X(cum + p.value);
@@ -614,10 +716,10 @@ function renderSotpBars(box, keys, so, groupColor) {
       const w = Math.max(0, x1 - x0 - 2);            // 2px surface gap
       if (w < 0.5) continue;
       const rect = el('rect', { x: x0 + 1, y: yMid - 12, width: w, height: 24, rx: 2, fill: groupColor[p.group], tabindex: 0 }, svg);
-      const showP = () => showTooltip(box, (x0 + x1) / 2, yMid - 18, `${DATA.sources[k].name} — ${p.name}`, [
-        { name: 'Value', color: groupColor[p.group], text: `${CCY} ${(p.value / 1000).toFixed(1)}bn` },
-        { name: '% of total', color: groupColor[p.group], text: (p.value / s.total * 100).toFixed(1) + '%' },
-        { name: 'Basis', color: groupColor[p.group], text: p.basis },
+      const showP = () => showTooltip(box, (x0 + x1) / 2, yMid - 18, `${L(DATA.sources[k].name)} — ${L(p.name)}`, [
+        { name: T().valueRow, color: groupColor[p.group], text: `${CCY} ${(p.value / 1000).toFixed(1)}bn` },
+        { name: T().pctTotal, color: groupColor[p.group], text: (p.value / s.total * 100).toFixed(1) + '%' },
+        { name: T().basisRow, color: groupColor[p.group], text: L(p.basis) },
       ]);
       rect.addEventListener('pointerenter', showP);
       rect.addEventListener('focus', showP);
@@ -671,18 +773,20 @@ function buildCatalog() {
   const cats = [];
   for (const m of DATA.metrics) if (!cats.includes(m.category)) cats.push(m.category);
   for (const cat of cats) {
-    const h = document.createElement('h2'); h.textContent = cat; nav.appendChild(h);
+    const h = document.createElement('h2');
+    h.textContent = L((DATA.categoryNames || {})[cat] || cat);
+    nav.appendChild(h);
     for (const m of DATA.metrics.filter(x => x.category === cat)) {
-      catalogItem(nav, m.label, Object.keys(m.series), m.id);
+      catalogItem(nav, L(m.label), Object.keys(m.series), m.id);
     }
   }
   if (Object.keys(SEG_VIEWS).length) {
-    const h = document.createElement('h2'); h.textContent = 'Segments'; nav.appendChild(h);
-    for (const [id, sv] of Object.entries(SEG_VIEWS)) catalogItem(nav, sv.label, [sv.src], id);
+    const h = document.createElement('h2'); h.textContent = T().segsHeader; nav.appendChild(h);
+    for (const [id, sv] of Object.entries(SEG_VIEWS)) catalogItem(nav, T()[sv.key], [sv.src], id);
   }
   if (HAS_SOTP) {
-    const h = document.createElement('h2'); h.textContent = 'Valuation — SOTP'; nav.appendChild(h);
-    catalogItem(nav, 'Sum-of-the-parts', Object.keys(DATA.sotp.sources), 'sotp');
+    const h = document.createElement('h2'); h.textContent = T().sotpHeader; nav.appendChild(h);
+    catalogItem(nav, T().sotpItem, Object.keys(DATA.sotp.sources), 'sotp');
   }
 }
 
@@ -710,25 +814,25 @@ function buildFilters() {
 
   if (!isSeg) {
     const avail = isSotp ? Object.keys(DATA.sotp.sources) : availableSources(state.metric);
-    const opts = [...SRC_KEYS.map(k => [k, k]), ...(SRC_KEYS.length > 1 ? [['Both', 'Both']] : [])];
+    const opts = [...SRC_KEYS.map(k => [k, k]), ...(SRC_KEYS.length > 1 ? [['Both', T().both]] : [])];
     const dis = new Set(opts.map(o => o[0]).filter(s => s === 'Both' ? avail.length < 2 : !avail.includes(s)));
-    f.appendChild(segControl('Source', opts, state.source, v => { state.source = v; render(); }, dis));
+    f.appendChild(segControl(T().source, opts, state.source, v => { state.source = v; render(); }, dis));
   }
 
   if (!isSotp) {
-    f.appendChild(segControl('Range', [
-      ['all', 'All'], ['y10', `${RANGES.y10} →`], ['y5', `${RANGES.y5} →`], ['fcst', `${RANGES.fcst} →`],
+    f.appendChild(segControl(T().range, [
+      ['all', T().all], ['y10', `${RANGES.y10} →`], ['y5', `${RANGES.y5} →`], ['fcst', `${RANGES.fcst} →`],
     ], state.range, v => { state.range = v; render(); }));
   }
 
   if (!isSeg && !isSotp) {
     const g = document.createElement('div'); g.className = 'group';
-    const l = document.createElement('label'); l.className = 'glabel'; l.textContent = 'Correlate with';
+    const l = document.createElement('label'); l.className = 'glabel'; l.textContent = T().correlate;
     const sel = document.createElement('select'); sel.className = 'ctl';
-    const o0 = document.createElement('option'); o0.value = ''; o0.textContent = 'None'; sel.appendChild(o0);
+    const o0 = document.createElement('option'); o0.value = ''; o0.textContent = T().none; sel.appendChild(o0);
     for (const m of DATA.metrics) {
       if (m.id === state.metric) continue;
-      const o = document.createElement('option'); o.value = m.id; o.textContent = m.label;
+      const o = document.createElement('option'); o.value = m.id; o.textContent = L(m.label);
       if (m.id === state.compare) o.selected = true;
       sel.appendChild(o);
     }
@@ -739,13 +843,24 @@ function buildFilters() {
       const sameUnit = METRICS[state.metric].unit === METRICS[state.compare].unit;
       const dis = new Set(sameUnit ? [] : ['overlay']);
       if (dis.has(state.mode)) state.mode = 'panels';
-      f.appendChild(segControl('as', [['panels', 'Paired panels'], ['overlay', 'Overlay'], ['indexed', 'Indexed'], ['scatter', 'Scatter']], state.mode, v => { state.mode = v; render(); }, dis));
+      f.appendChild(segControl(T().as, [['panels', T().panels], ['overlay', T().overlay], ['indexed', T().indexed], ['scatter', T().scatter]], state.mode, v => { state.mode = v; render(); }, dis));
     }
   }
 
   if (!isSotp) {
-    f.appendChild(segControl('', [['off', 'Chart'], ['on', 'Chart + table']], state.table ? 'on' : 'off', v => { state.table = v === 'on'; render(); }));
+    f.appendChild(segControl('', [['off', T().chart], ['on', T().chartTable]], state.table ? 'on' : 'off', v => { state.table = v === 'on'; render(); }));
   }
+}
+
+/* ---------- section summary ---------- */
+function summaryCard(root, key) {
+  const s = (DATA.summaries || {})[key];
+  if (!s) return;
+  const card = document.createElement('div'); card.className = 'summary';
+  const h = document.createElement('div'); h.className = 'stitle'; h.textContent = T().about;
+  const p = document.createElement('p'); p.textContent = L(s);
+  card.append(h, p);
+  root.appendChild(card);
 }
 
 /* ---------- cards ---------- */
@@ -755,7 +870,7 @@ function chartCard(parent, title, unitText, legendItems, footnote) {
   const card = document.createElement('div'); card.className = 'card';
   const head = document.createElement('div'); head.className = 'cardhead';
   const h = document.createElement('h3');
-  const ex = document.createElement('span'); ex.className = 'exh'; ex.textContent = `Exhibit ${exhibitNo}: `;
+  const ex = document.createElement('span'); ex.className = 'exh'; ex.textContent = T().exhibit(exhibitNo);
   h.appendChild(ex); h.appendChild(document.createTextNode(title));
   const u = document.createElement('span'); u.className = 'unit'; u.textContent = unitText;
   head.append(h, u);
@@ -777,19 +892,19 @@ function chartCard(parent, title, unitText, legendItems, footnote) {
 }
 
 function sourceFootnote(sources) {
-  const parts = sources.map(k => `${DATA.sources[k].name} model (${DATA.sources[k].asOf})`);
-  return 'Source: Company data, ' + parts.join('; ') + '. Dashed / lighter marks are estimates.';
+  const parts = sources.map(k => T().modelParen(L(DATA.sources[k].name), L(DATA.sources[k].asOf)));
+  return T().sourceLine(parts) + ' ' + T().estMarks;
 }
 
 function tableCard(parent, title, series, unit, yearDomain, scale) {
   const card = document.createElement('div'); card.className = 'card';
   const h = document.createElement('h3');
   const uniform = series.every(s => (s.unit || unit) === unit);
-  h.textContent = title + ' — data' + (unit && uniform ? ` (${unitLabel(unit, scale)})` : '');
+  h.textContent = title + T().dataSuffix + (unit && uniform ? ` (${unitLabel(unit, scale)})` : '');
   card.appendChild(h);
   const tbl = document.createElement('table'); tbl.className = 'dataview';
   const thr = document.createElement('tr');
-  const th0 = document.createElement('th'); th0.textContent = 'Series'; thr.appendChild(th0);
+  const th0 = document.createElement('th'); th0.textContent = T().series; thr.appendChild(th0);
   for (const y of yearDomain) { const th = document.createElement('th'); th.textContent = y; thr.appendChild(th); }
   tbl.appendChild(thr);
   for (const s of series) {
@@ -823,17 +938,18 @@ function render() {
   root.replaceChildren();
   hideTooltip();
 
-  if (state.metric === 'sotp') return renderSotp(root);
+  if (state.metric === 'sotp') { summaryCard(root, 'sotp'); return renderSotp(root); }
   const segView = SEG_VIEWS[state.metric];
-  if (segView) return renderSegments(root, segView);
+  if (segView) { summaryCard(root, 'segments'); return renderSegments(root, segView); }
 
   const m = METRICS[state.metric];
+  summaryCard(root, m.category);
   let srcs = state.source === 'Both' ? SRC_KEYS : [state.source];
   srcs = srcs.filter(s => m.series[s]);
   if (!srcs.length) {
     srcs = availableSources(m.id);
     const n = document.createElement('div'); n.className = 'note-inline';
-    n.textContent = `${m.label} is only in the ${srcs.join('/')} model — showing that instead.`;
+    n.textContent = T().onlyIn(L(m.label), srcs.join('/'));
     root.appendChild(n);
   }
 
@@ -853,18 +969,18 @@ function render() {
       const a = clipToRange(metricSeries(m.id, [src])[0], from);
       const b = clipToRange(metricSeries(cm.id, [src])[0], from);
       const common = a.years.filter(y => valAt(a, y) != null && valAt(b, y) != null);
-      const { box } = chartCard(root, `${m.label} vs ${cm.label} (${src} model, ${common[0]}–${common[common.length - 1]})`, '', [], sourceFootnote([src]) + ' Each dot is one fiscal year; lighter dots are estimate years.');
+      const { box } = chartCard(root, T().scatterTitle(L(m.label), L(cm.label), src, common[0], common[common.length - 1]), '', [], sourceFootnote([src]) + T().scatterNote);
       renderScatter(box, a, b, src);
-      if (state.table) tableCard(root, `${m.label} vs ${cm.label}`, [{ ...a, name: m.label }, { ...b, name: cm.label }], m.unit, yearDomainFor([a, b]));
+      if (state.table) tableCard(root, `${L(m.label)}${T().vs}${L(cm.label)}`, [{ ...a, name: L(m.label) }, { ...b, name: L(cm.label) }], m.unit, yearDomainFor([a, b]));
       return;
     }
 
     if (state.mode === 'indexed' || state.mode === 'overlay') {
       const all = [
-        ...primary.map(s => ({ ...s, name: (multi || csrcs.length > 1) ? `${m.label} (${s.name})` : m.label })),
-        ...comp.map((s, i) => ({ ...s, name: (multi || csrcs.length > 1) ? `${cm.label} (${s.name})` : cm.label, color: SLOTS()[2 + i] })),
+        ...primary.map(s => ({ ...s, name: (multi || csrcs.length > 1) ? `${L(m.label)} (${s.name})` : L(m.label) })),
+        ...comp.map((s, i) => ({ ...s, name: (multi || csrcs.length > 1) ? `${L(cm.label)} (${s.name})` : L(cm.label), color: SLOTS()[2 + i] })),
       ];
-      let plot = all, unit = m.unit, title = `${m.label} vs ${cm.label}`;
+      let plot = all, unit = m.unit, title = `${L(m.label)}${T().vs}${L(cm.label)}`;
       if (state.mode === 'indexed') {
         plot = all.map(s => {
           const i0 = s.values.findIndex((v, i) => v != null && s.years[i] >= from && v !== 0);
@@ -872,7 +988,7 @@ function render() {
           return { ...s, unit: 'idx', values: s.values.map(v => (v == null || base == null) ? null : (v / base) * 100) };
         });
         unit = 'idx';
-        title += ' — indexed';
+        title += T().indexedSuffix;
       }
       const ydAll = yearDomainFor(plot);
       const { box } = chartCard(root, title, unitLabel(unit), plot.map(s => ({ name: s.name, color: s.color, line: true })), sourceFootnote([...new Set([...srcs, ...csrcs])]));
@@ -884,20 +1000,20 @@ function render() {
     // paired panels (default): shared x domain
     const ydAll = yearDomainFor([...primary, ...comp]);
     const spec1 = { kind, series: primary, unit: m.unit, height: 320, yearDomain: ydAll };
-    const c1 = chartCard(root, m.label, unitLabel(m.unit), multi ? primary.map(s => ({ name: DATA.sources[s.name].name, color: s.color, line: kind === 'line' })) : [], sourceFootnote(srcs));
+    const c1 = chartCard(root, L(m.label), unitLabel(m.unit), multi ? primary.map(s => ({ name: L(DATA.sources[s.name].name), color: s.color, line: kind === 'line' })) : [], sourceFootnote(srcs));
     renderTimeseries(c1.box, spec1);
     if (spec1.scaleUsed === 'bn') c1.unitEl.textContent = unitLabel(m.unit, 'bn');
 
     const ckind = (comp.length < 2 && cm.unit === 'rmbmn') ? 'columns' : 'line';
     const spec2 = { kind: ckind, series: comp, unit: cm.unit, height: 250, yearDomain: ydAll };
-    const c2 = chartCard(root, cm.label, unitLabel(cm.unit), comp.length >= 2 ? comp.map(s => ({ name: DATA.sources[s.name].name, color: s.color, line: ckind === 'line' })) : [], sourceFootnote(csrcs));
+    const c2 = chartCard(root, L(cm.label), unitLabel(cm.unit), comp.length >= 2 ? comp.map(s => ({ name: L(DATA.sources[s.name].name), color: s.color, line: ckind === 'line' })) : [], sourceFootnote(csrcs));
     renderTimeseries(c2.box, spec2);
     if (spec2.scaleUsed === 'bn') c2.unitEl.textContent = unitLabel(cm.unit, 'bn');
 
     if (state.table) {
-      tableCard(root, `${m.label} & ${cm.label}`, [
-        ...primary.map(s => ({ ...s, name: `${m.label} (${s.name})`, unit: m.unit })),
-        ...comp.map(s => ({ ...s, name: `${cm.label} (${s.name})`, unit: cm.unit })),
+      tableCard(root, `${L(m.label)} & ${L(cm.label)}`, [
+        ...primary.map(s => ({ ...s, name: `${L(m.label)} (${s.name})`, unit: m.unit })),
+        ...comp.map(s => ({ ...s, name: `${L(cm.label)} (${s.name})`, unit: cm.unit })),
       ], m.unit, ydAll);
     }
     return;
@@ -905,10 +1021,10 @@ function render() {
 
   /* single metric */
   const spec = { kind, series: primary, unit: m.unit, height: 400, yearDomain: yd };
-  const c = chartCard(root, m.label, unitLabel(m.unit), multi ? primary.map(s => ({ name: DATA.sources[s.name].name, color: s.color, line: kind === 'line' })) : [], sourceFootnote(srcs));
+  const c = chartCard(root, L(m.label), unitLabel(m.unit), multi ? primary.map(s => ({ name: L(DATA.sources[s.name].name), color: s.color, line: kind === 'line' })) : [], sourceFootnote(srcs));
   renderTimeseries(c.box, spec);
   if (spec.scaleUsed === 'bn') c.unitEl.textContent = unitLabel(m.unit, 'bn');
-  if (state.table) tableCard(root, m.label, primary, m.unit, yd, spec.scaleUsed);
+  if (state.table) tableCard(root, L(m.label), primary, m.unit, yd, spec.scaleUsed);
 }
 
 /* ---------- segment views ---------- */
@@ -922,7 +1038,7 @@ function renderSegments(root, sv) {
   if (sv.kind === 'stack' || sv.kind === 'mix') {
     const raw = sg.revenue;
     const names = Object.keys(raw);
-    let series = names.map((n, i) => ({ name: n, color: slots[i % slots.length], years: meta.years.slice(0, raw[n].length), values: raw[n], estFrom: meta.estFrom }));
+    let series = names.map((n, i) => ({ name: segName(n), color: slots[i % slots.length], years: meta.years.slice(0, raw[n].length), values: raw[n], estFrom: meta.estFrom }));
     if (sv.kind === 'mix') {
       const denomMetric = METRICS[sg.mixOf];
       const total = denomMetric && denomMetric.series[sv.src];
@@ -936,9 +1052,9 @@ function renderSegments(root, sv) {
     series = series.map(s => clipToRange(s, from));
     const yd = yearDomainFor(series);
     const unit = sv.kind === 'mix' ? 'pct' : 'rmbmn';
-    const title = sv.kind === 'mix' ? `Revenue mix by segment (${sv.src})` : `Revenue by segment (${sv.src})`;
-    const note = notes.revenue ? ' ' + notes.revenue : '';
-    const mixNote = sv.kind === 'mix' ? ' Shown as % of total group revenue.' : '';
+    const title = `${sv.kind === 'mix' ? T().segMix : T().segRev} (${sv.src})`;
+    const note = notes.revenue ? ' ' + L(notes.revenue) : '';
+    const mixNote = sv.kind === 'mix' ? T().mixNote : '';
     const { box, unitEl } = chartCard(root, title, unitLabel(unit), series.map(s => ({ name: s.name, color: s.color })), sourceFootnote([sv.src]) + note + mixNote);
     const spec = { kind: 'stack', series, unit, height: 420, yearDomain: yd };
     renderTimeseries(box, spec);
@@ -950,16 +1066,18 @@ function renderSegments(root, sv) {
   // gross margin lines
   const gm = sg.grossMargin;
   const names = Object.keys(gm);
-  const series = names.map((n, i) => clipToRange({ name: n, color: slots[i % slots.length], years: meta.years.slice(0, gm[n].length), values: gm[n], estFrom: meta.estFrom, unit: 'pct' }, from));
+  const series = names.map((n, i) => clipToRange({ name: segName(n), color: slots[i % slots.length], years: meta.years.slice(0, gm[n].length), values: gm[n], estFrom: meta.estFrom, unit: 'pct' }, from));
   const yd = yearDomainFor(series);
-  const note = notes.grossMargin ? ' ' + notes.grossMargin : '';
-  const { box } = chartCard(root, `Gross margin by segment (${sv.src})`, unitLabel('pct'), series.map(s => ({ name: s.name, color: s.color, line: true })), sourceFootnote([sv.src]) + note);
+  const note = notes.grossMargin ? ' ' + L(notes.grossMargin) : '';
+  const title = `${T().segGM} (${sv.src})`;
+  const { box } = chartCard(root, title, unitLabel('pct'), series.map(s => ({ name: s.name, color: s.color, line: true })), sourceFootnote([sv.src]) + note);
   renderTimeseries(box, { kind: 'line', series, unit: 'pct', height: 420, yearDomain: yd });
-  if (state.table) tableCard(root, `Gross margin by segment (${sv.src})`, series, 'pct', yd);
+  if (state.table) tableCard(root, title, series, 'pct', yd);
 }
 
 let rsz;
 window.addEventListener('resize', () => { clearTimeout(rsz); rsz = setTimeout(render, 150); });
+renderMasthead();
 render();
 </script>
 </body>

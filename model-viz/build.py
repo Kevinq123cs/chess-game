@@ -95,6 +95,11 @@ def fmt_cells(model, sheet, template):
     return re.sub(r"\{([A-Z]{1,3}\d+)(?::([^}]*))?\}", repl, template)
 
 
+def pack(en, zh=None):
+    """A display string: plain when monolingual, {en, zh} when translated."""
+    return {"en": en, "zh": zh} if zh else en
+
+
 def extract(cfg):
     models = {k: Model(s["file"]) for k, s in cfg["sources"].items()}
 
@@ -102,8 +107,8 @@ def extract(cfg):
     for key, s in cfg["sources"].items():
         y0, y1 = s["years"]
         sources[key] = {
-            "name": s["name"],
-            "asOf": s["asOf"],
+            "name": pack(s["name"], s.get("nameZh")),
+            "asOf": pack(s["asOf"], s.get("asOfZh")),
             "years": list(range(y0, y1 + 1)),
             "estFrom": s["estFrom"],
         }
@@ -111,8 +116,8 @@ def extract(cfg):
     # ---- metrics (label-based row lookup) ----
     metrics = []
     for m in cfg["metrics"]:
-        entry = {"id": m["id"], "label": m["label"], "unit": m["unit"],
-                 "category": m["category"], "series": {}}
+        entry = {"id": m["id"], "label": pack(m["label"], m.get("labelZh")),
+                 "unit": m["unit"], "category": m["category"], "series": {}}
         for key, spec in m["rows"].items():
             if spec is None:
                 continue
@@ -124,7 +129,8 @@ def extract(cfg):
         metrics.append(entry)
 
     # ---- segments ----
-    segments = {}
+    # series entries are (displayEn, sheetLabel) or (displayEn, displayZh, sheetLabel)
+    segments, seg_names = {}, {}
     for key, seg in cfg.get("segments", {}).items():
         model, out = models[key], {}
         n = len(sources[key]["years"])
@@ -133,33 +139,41 @@ def extract(cfg):
             for acol, alabel in g.get("anchors", []):
                 after = model.find_row(seg["sheet"], acol, alabel, after=after)
             series = {}
-            for display, label in g["series"]:
+            for item in g["series"]:
+                display, zh, label = item if len(item) == 3 else (item[0], None, item[1])
+                if zh:
+                    seg_names[display] = zh
                 row = model.find_row(seg["sheet"], seg["labelCol"], label, after=after)
                 series[display] = model.grab(seg["sheet"], row, seg["valueCol"], n,
                                              scale=g.get("scale", 1.0))
             out[gname] = series
-        out["notes"] = {k: g["note"] for k, g in seg["groups"].items() if g.get("note")}
+        out["notes"] = {k: pack(g["note"], g.get("noteZh"))
+                        for k, g in seg["groups"].items() if g.get("note")}
         out["mixOf"] = seg.get("mixOf", "revenue")
         segments[key] = out
 
     # ---- SOTP (free-form sheets -> explicit cells) ----
     sotp = None
     if "sotp" in cfg:
-        sotp = {"groups": cfg["sotp"]["groups"], "sources": {}}
+        groups = [{"id": g["id"], "label": pack(g["label"], g.get("labelZh"))}
+                  for g in cfg["sotp"]["groups"]]
+        sotp = {"groups": groups, "sources": {}}
         for key, sp in cfg["sotp"]["sources"].items():
             model, sheet = models[key], sp["sheet"]
             parts = []
             for p in sp["parts"]:
+                basis_en = fmt_cells(model, sheet, p["basis"])
+                basis_zh = fmt_cells(model, sheet, p["basisZh"]) if p.get("basisZh") else None
                 part = {
-                    "name": p["name"],
+                    "name": pack(p["name"], p.get("nameZh")),
                     "group": p["group"],
                     "value": clean(model.cell(sheet, p["value"])),
-                    "basis": fmt_cells(model, sheet, p["basis"]),
+                    "basis": pack(basis_en, basis_zh),
                 }
                 if p.get("old"):
                     part["old"] = clean(model.cell(sheet, p["old"]))
                 parts.append(part)
-            stats = [{"label": st["label"],
+            stats = [{"label": pack(st["label"], st.get("labelZh")),
                       "value": st["fmt"].format(v=model.cell(sheet, st["cell"]))}
                      for st in sp["stats"] if model.cell(sheet, st["cell"]) is not None]
             entry = {"parts": parts, "total": clean(model.cell(sheet, sp["total"])), "stats": stats}
@@ -168,14 +182,19 @@ def extract(cfg):
             sotp["sources"][key] = entry
 
     data = {
-        "company": cfg["company"],
+        "company": pack(cfg["company"], cfg.get("companyZh")),
         "tickers": cfg["tickers"],
         "currency": cfg["currency"],
-        "unitNote": cfg.get("unitNote", f"{cfg['currency']} mn unless stated"),
         "sources": sources,
         "metrics": metrics,
         "segments": segments,
     }
+    if seg_names:
+        data["segNames"] = seg_names
+    if cfg.get("categories"):
+        data["categoryNames"] = {en: pack(en, zh) for en, zh in cfg["categories"].items()}
+    if cfg.get("summaries"):
+        data["summaries"] = cfg["summaries"]
     if sotp:
         data["sotp"] = sotp
     return data
