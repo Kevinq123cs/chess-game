@@ -139,6 +139,18 @@
   .tile .tlabel { font-size: 11px; color: var(--ink-3); }
   .tile .tvalue { font-size: 20px; font-weight: 650; color: var(--ink-1); }
 
+  /* indicator chips (deep dives) */
+  .chips { display: flex; gap: 6px; flex-wrap: wrap; padding: 4px 0 6px; }
+  .chip {
+    font-size: 11px; border: 1px solid var(--border); border-radius: 6px;
+    padding: 2px 8px; color: var(--ink-3); white-space: nowrap;
+  }
+  .chip b { color: var(--ink-1); font-weight: 650; margin-left: 3px; }
+  .chip[data-tone="good"] { background: rgba(12,163,12,.10); }
+  .chip[data-tone="warn"] { background: rgba(250,178,25,.14); }
+  .chip[data-tone="bad"]  { background: rgba(208,59,59,.12); }
+  .claimtext { color: var(--ink-2); font-size: 12.5px; max-width: 960px; padding: 2px 0 6px; }
+
   .tooltip {
     position: absolute; pointer-events: none; z-index: 5; display: none;
     background: var(--surface-1); border: 1px solid var(--border); border-radius: 8px;
@@ -225,7 +237,12 @@ const UI = {
     prior: 'Prior est.', delta: 'Δ', totalEquity: 'Total equity value',
     valueRow: 'Value', basisRow: 'Basis',
     about: 'About this section',
-    units: { mn: c => `${c} mn`, bn: c => `${c} bn`, pct: '%', x: 'multiple (x)', days: 'days', ps: c => `${c} / share`, idx: 'indexed, base = 100' },
+    deepHeader: 'Deep dives',
+    chipActuals: 'actuals', chipYears: n => `${n}y`, chipAligned: 'aligned', chipGap: 'gap',
+    driversTitle: n => `${n} — driver assumptions`,
+    thDriver: 'Driver', thUnit: 'Unit', thLastA: 'Last actual', thFirstE: 'First estimate',
+    thFinalE: 'Final estimate', thCagr: 'CAGR to final',
+    units: { mn: c => `${c} mn`, bn: c => `${c} bn`, pct: '%', x: 'multiple (x)', days: 'days', ps: c => `${c} / share`, idx: 'indexed, base = 100', units: 'units' },
   },
   zh: {
     explorer: '模型浏览器',
@@ -256,7 +273,12 @@ const UI = {
     prior: '前次估计', delta: 'Δ', totalEquity: '股权价值合计',
     valueRow: '价值', basisRow: '依据',
     about: '本节说明',
-    units: { mn: c => (c === 'RMB' ? '人民币' : c) + '百万', bn: c => (c === 'RMB' ? '人民币' : c) + '十亿', pct: '%', x: '倍 (x)', days: '天', ps: () => '元/股', idx: '指数化，基期 = 100' },
+    deepHeader: '专题深挖',
+    chipActuals: '实际数据', chipYears: n => `${n}年`, chipAligned: '一致', chipGap: '差异',
+    driversTitle: n => `${n}——驱动假设`,
+    thDriver: '驱动因子', thUnit: '单位', thLastA: '最新实际', thFirstE: '首个预测',
+    thFinalE: '期末预测', thCagr: '至期末CAGR',
+    units: { mn: c => (c === 'RMB' ? '人民币' : c) + '百万', bn: c => (c === 'RMB' ? '人民币' : c) + '十亿', pct: '%', x: '倍 (x)', days: '天', ps: () => '元/股', idx: '指数化，基期 = 100', units: '台' },
   },
 };
 const T = () => UI[state.lang];
@@ -275,6 +297,8 @@ for (const src of SRC_KEYS) {
   if (sg.grossMargin) SEG_VIEWS['seg_gm_' + src] = { key: 'segGM', src, kind: 'lines' };
 }
 const HAS_SOTP = !!(DATA.sotp && Object.keys(DATA.sotp.sources).length);
+const DEEP = {};
+(DATA.deepDives || []).forEach(d => { DEEP['dd_' + d.id] = d; });
 
 const state = {
   metric: DATA.metrics[0].id,                       // metric id | SEG_VIEWS key | 'sotp'
@@ -324,6 +348,7 @@ function fmt(v, unit, scale) {
     case 'days': return Math.round(v).toString();
     case 'rmb':  return v.toFixed(2);
     case 'idx':  return v.toFixed(0);
+    case 'units': return Math.round(v).toLocaleString('en-US');
     default:     return String(v);
   }
 }
@@ -336,6 +361,7 @@ function unitLabel(unit, scale) {
     case 'days':  return u.days;
     case 'rmb':   return u.ps(CCY);
     case 'idx':   return u.idx;
+    case 'units': return u.units;
     default:      return '';
   }
 }
@@ -788,6 +814,13 @@ function buildCatalog() {
     const h = document.createElement('h2'); h.textContent = T().sotpHeader; nav.appendChild(h);
     catalogItem(nav, T().sotpItem, Object.keys(DATA.sotp.sources), 'sotp');
   }
+  if (Object.keys(DEEP).length) {
+    const h = document.createElement('h2'); h.textContent = T().deepHeader; nav.appendChild(h);
+    for (const [id, d] of Object.entries(DEEP)) {
+      const srcs = [...new Set(d.charts.flatMap(c => c.series.map(s => s.src)))];
+      catalogItem(nav, L(d.title), srcs, id);
+    }
+  }
 }
 
 /* ---------- filter row ---------- */
@@ -811,6 +844,12 @@ function buildFilters() {
   f.replaceChildren();
   const isSeg = !!SEG_VIEWS[state.metric];
   const isSotp = state.metric === 'sotp';
+  const isDeep = !!DEEP[state.metric];
+
+  if (isDeep) {  // deep dives are fixed cross-bank comparisons; only the table toggle applies
+    f.appendChild(segControl('', [['off', T().chart], ['on', T().chartTable]], state.table ? 'on' : 'off', v => { state.table = v === 'on'; render(); }));
+    return;
+  }
 
   if (!isSeg) {
     const avail = isSotp ? Object.keys(DATA.sotp.sources) : availableSources(state.metric);
@@ -939,6 +978,7 @@ function render() {
   hideTooltip();
 
   if (state.metric === 'sotp') { summaryCard(root, 'sotp'); return renderSotp(root); }
+  if (DEEP[state.metric]) return renderDeepDive(root, DEEP[state.metric]);
   const segView = SEG_VIEWS[state.metric];
   if (segView) { summaryCard(root, 'segments'); return renderSegments(root, segView); }
 
@@ -1025,6 +1065,93 @@ function render() {
   renderTimeseries(c.box, spec);
   if (spec.scaleUsed === 'bn') c.unitEl.textContent = unitLabel(m.unit, 'bn');
   if (state.table) tableCard(root, L(m.label), primary, m.unit, yd, spec.scaleUsed);
+}
+
+/* ---------- deep dives ---------- */
+function chipsRow(parent, chips) {
+  if (!chips || !chips.length) return;
+  const row = document.createElement('div'); row.className = 'chips';
+  for (const c of chips) {
+    const span = document.createElement('span'); span.className = 'chip';
+    span.dataset.tone = c.tone || 'neutral';
+    let k, v;
+    if (c.type === 'actuals') { k = T().chipActuals; v = T().chipYears(c.n); }
+    else if (c.type === 'aligned') { k = `${c.year}E`; v = T().chipAligned; }
+    else if (c.type === 'gap') { k = `${c.year}E ${T().chipGap}`; v = (c.pct >= 0 ? '+' : '') + (c.pct * 100).toFixed(1) + '%'; }
+    else { k = L(c.k); v = L(c.v); }
+    span.appendChild(document.createTextNode(k + ':'));
+    const b = document.createElement('b'); b.textContent = v; span.appendChild(b);
+    row.appendChild(span);
+  }
+  parent.appendChild(row);
+}
+
+function fmtDriverVal(v, pct) {
+  if (v == null) return '–';
+  if (pct) return (v * 100).toFixed(1) + '%';
+  const a = Math.abs(v);
+  const dp = a >= 100 ? 0 : (a >= 10 ? 1 : 2);
+  return v.toLocaleString('en-US', { maximumFractionDigits: dp });
+}
+
+function renderDeepDive(root, d) {
+  if (d.summaryKey) summaryCard(root, d.summaryKey);
+
+  /* full claims per bank, with editorial indicator chips */
+  for (const c of d.claims) {
+    const card = document.createElement('div'); card.className = 'card';
+    const h = document.createElement('h3'); h.textContent = L(DATA.sources[c.src].name);
+    const p = document.createElement('div'); p.className = 'claimtext'; p.textContent = L(c.text);
+    card.append(h, p);
+    chipsRow(card, c.chips);
+    root.appendChild(card);
+  }
+
+  /* comparison charts with computed chips */
+  for (const ch of d.charts) {
+    const srcs = [...new Set(ch.series.map(s => s.src))];
+    const series = ch.series.map(s => ({ ...s, name: L(s.name), color: SLOTS()[(s.slot - 1) % 6] }));
+    const yd = yearDomainFor(series);
+    const foot = sourceFootnote(srcs) + (ch.note ? ' ' + L(ch.note) : '');
+    const { card, box, unitEl } = chartCard(root, L(ch.title), unitLabel(ch.unit),
+      series.map(s => ({ name: s.name, color: s.color, line: true })), foot);
+    const head = card.querySelector('.cardhead');
+    const chipDiv = document.createElement('div');
+    chipsRow(chipDiv, ch.chips);
+    head.after(chipDiv.firstChild || chipDiv);
+    const spec = { kind: 'line', series, unit: ch.unit, height: 320, yearDomain: yd };
+    renderTimeseries(box, spec);
+    if (spec.scaleUsed === 'bn') unitEl.textContent = unitLabel(ch.unit, 'bn');
+    if (state.table) tableCard(root, L(ch.title), series, ch.unit, yd, spec.scaleUsed);
+  }
+
+  /* driver-assumption tables: last actual → estimates, one row per assumption */
+  for (const dr of d.drivers) {
+    const card = document.createElement('div'); card.className = 'card';
+    const h = document.createElement('h3'); h.textContent = T().driversTitle(L(DATA.sources[dr.src].name));
+    card.appendChild(h);
+    const tbl = document.createElement('table'); tbl.className = 'dataview';
+    const thr = document.createElement('tr');
+    for (const c of [T().thDriver, T().thUnit, T().thLastA, T().thFirstE, T().thFinalE, T().thCagr]) {
+      const th = document.createElement('th'); th.textContent = c; thr.appendChild(th);
+    }
+    thr.children[1].style.textAlign = 'left';
+    tbl.appendChild(thr);
+    for (const r of dr.rows) {
+      const tr = document.createElement('tr');
+      const cell = (txt, cls) => { const td = document.createElement('td'); if (cls) td.className = cls; td.textContent = txt; tr.appendChild(td); };
+      cell(L(r.name));
+      cell(L(r.unit), 'txt');
+      cell(r.lastA ? `${fmtDriverVal(r.lastA[1], r.pct)} (${r.lastA[0]})` : '–');
+      cell(r.e1 ? `${fmtDriverVal(r.e1[1], r.pct)} (${r.e1[0]}E)` : '–');
+      cell(r.eN ? `${fmtDriverVal(r.eN[1], r.pct)} (${r.eN[0]}E)` : '–');
+      cell(r.cagr != null ? (r.cagr >= 0 ? '+' : '') + (r.cagr * 100).toFixed(0) + '%' : '–');
+      tbl.appendChild(tr);
+    }
+    const wrap = document.createElement('div'); wrap.style.overflowX = 'auto'; wrap.appendChild(tbl);
+    card.appendChild(wrap);
+    root.appendChild(card);
+  }
 }
 
 /* ---------- segment views ---------- */

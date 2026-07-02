@@ -48,6 +48,25 @@ Requires `openpyxl` (`pip3 install --user openpyxl`).
 7. Run the build; `build.py` raises a clear `KeyError` naming any label it
    can't find — fix those labels and rerun.
 
+## Deep dives (driver detail with indicator chips)
+
+`deepDives` config entries build focused pages from the banks' driver sheets
+(e.g. the AIDC/data-center engine model). Design principle: **full claims
+only, compressed with indicators** — each bank gets one complete claim card,
+and unavoidable detail is reduced to chips and a compact assumptions table
+instead of year-by-year dumps.
+
+- Driver sheets are free-form, so series use explicit `row` numbers (like
+  SOTP cells), with `col0`/`n`/`y0` describing the year columns and `scale`
+  converting to RMB mn. `sumRows` adds several rows into one series.
+- **Computed chips** (build.py, from the data): `actuals: Ny` (evidence
+  depth; ≤3y flags amber, ≤1y red), `YYYYE aligned` / `YYYYE gap: +x%`
+  (cross-bank agreement on the two series named by `compare`).
+- **Authored chips** (config, editorial): margin path, scope caveats, SOTP
+  weight, CAGR — anything that encodes judgment rather than arithmetic.
+- `drivers` tables show each assumption as one row: last actual → first
+  estimate → final estimate → CAGR, so a 20-column sheet reads in one line.
+
 ## Chinese / English toggle & section summaries
 
 The app has an EN/中文 toggle in the masthead (remembered in localStorage).

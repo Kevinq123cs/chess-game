@@ -100,6 +100,39 @@ def pack(en, zh=None):
     return {"en": en, "zh": zh} if zh else en
 
 
+def cagr(v0, v1, years):
+    if not v0 or not v1 or v0 <= 0 or v1 <= 0 or years <= 0:
+        return None
+    return (v1 / v0) ** (1 / years) - 1
+
+
+def auto_chips(series, compare):
+    """Data-derived indicator chips for a deep-dive chart: evidence depth and
+    cross-bank agreement. Authored (editorial) chips live on claims instead."""
+    chips = []
+    n_act = min(
+        sum(1 for y, v in zip(s["years"], s["values"]) if v is not None and y < s["estFrom"])
+        for s in series
+    )
+    chips.append({"type": "actuals", "n": n_act,
+                  "tone": "bad" if n_act <= 1 else ("warn" if n_act <= 3 else "good")})
+    if compare and len(compare) == 2:
+        a, b = series[compare[0]], series[compare[1]]
+        av = dict(zip(a["years"], a["values"]))
+        bv = dict(zip(b["years"], b["values"]))
+        est = [y for y in a["years"]
+               if y >= a["estFrom"] and av.get(y) is not None and bv.get(y) is not None]
+        if est:
+            first, last = est[0], est[-1]
+            g_first = av[first] / bv[first] - 1
+            if abs(g_first) < 0.02:
+                chips.append({"type": "aligned", "year": first, "tone": "good"})
+            g_last = av[last] / bv[last] - 1
+            tone = "good" if abs(g_last) < 0.10 else ("warn" if abs(g_last) < 0.30 else "bad")
+            chips.append({"type": "gap", "year": last, "pct": round(g_last, 4), "tone": tone})
+    return chips
+
+
 def extract(cfg):
     models = {k: Model(s["file"]) for k, s in cfg["sources"].items()}
 
@@ -181,6 +214,65 @@ def extract(cfg):
                 entry["oldTotal"] = clean(model.cell(sheet, sp["oldTotal"]))
             sotp["sources"][key] = entry
 
+    # ---- deep dives (driver-sheet detail; explicit rows, like SOTP cells) ----
+    deep = []
+    for dd in cfg.get("deepDives", []):
+        charts = []
+        for ch in dd.get("charts", []):
+            series = []
+            for sd in ch["series"]:
+                model = models[sd["src"]]
+                acc = None
+                for r in (sd.get("sumRows") or [sd["row"]]):
+                    vals = model.grab(sd["sheet"], r, sd["col0"], sd["n"], scale=sd.get("scale", 1.0))
+                    if acc is None:
+                        acc = vals
+                    else:
+                        acc = [None if (x is None and y is None) else (x or 0) + (y or 0)
+                               for x, y in zip(acc, vals)]
+                series.append({
+                    "name": pack(sd["name"], sd.get("nameZh")),
+                    "src": sd["src"], "slot": sd.get("slot", 1),
+                    "years": list(range(sd["y0"], sd["y0"] + sd["n"])),
+                    "values": acc,
+                    "estFrom": cfg["sources"][sd["src"]]["estFrom"],
+                })
+            entry = {"title": pack(ch["title"], ch.get("titleZh")), "unit": ch["unit"],
+                     "series": series, "chips": auto_chips(series, ch.get("compare"))}
+            if ch.get("note"):
+                entry["note"] = pack(ch["note"], ch.get("noteZh"))
+            charts.append(entry)
+
+        drivers = []
+        for dr in dd.get("drivers", []):
+            model, est_from = models[dr["src"]], cfg["sources"][dr["src"]]["estFrom"]
+            rows_out = []
+            for r in dr["rows"]:
+                vals = model.grab(dr["sheet"], r["row"], dr["col0"], dr["n"], scale=r.get("scale", 1.0))
+                pairs = [(y, v) for y, v in zip(range(dr["y0"], dr["y0"] + dr["n"]), vals)
+                         if v is not None]
+                act = [p for p in pairs if p[0] < est_from]
+                est = [p for p in pairs if p[0] >= est_from]
+                la, e1, eN = (act[-1] if act else None), (est[0] if est else None), (est[-1] if est else None)
+                g = None
+                if la and eN and not r.get("pct"):
+                    g = cagr(la[1], eN[1], eN[0] - la[0])
+                rows_out.append({"name": pack(r["name"], r.get("nameZh")),
+                                 "unit": pack(r["unit"], r.get("unitZh")),
+                                 "pct": r.get("pct", False),
+                                 "lastA": la, "e1": e1, "eN": eN,
+                                 "cagr": round(g, 4) if g is not None else None,
+                                 "nActuals": len(act)})
+            drivers.append({"src": dr["src"], "rows": rows_out})
+
+        claims = [{"src": c["src"], "text": pack(c["text"], c.get("textZh")),
+                   "chips": [{"k": pack(x["k"], x.get("kZh")), "v": pack(x["v"], x.get("vZh")),
+                              "tone": x.get("tone", "neutral")} for x in c.get("chips", [])]}
+                  for c in dd.get("claims", [])]
+        deep.append({"id": dd["id"], "title": pack(dd["title"], dd.get("titleZh")),
+                     "summaryKey": dd.get("summaryKey"),
+                     "claims": claims, "charts": charts, "drivers": drivers})
+
     data = {
         "company": pack(cfg["company"], cfg.get("companyZh")),
         "tickers": cfg["tickers"],
@@ -197,6 +289,8 @@ def extract(cfg):
         data["summaries"] = cfg["summaries"]
     if sotp:
         data["sotp"] = sotp
+    if deep:
+        data["deepDives"] = deep
     return data
 
 

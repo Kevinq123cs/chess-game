@@ -267,6 +267,113 @@ CONFIG = {
         },
     },
 
+    # Deep dives: driver-sheet detail pages. These sheets are free-form, so
+    # series use explicit row numbers (like SOTP cells). Chart indicator chips
+    # (actuals depth, cross-bank gap) are COMPUTED by build.py; claim chips are
+    # editorial and authored here. 'compare' names the two series indices to
+    # measure agreement between.
+    "deepDives": [
+        {
+            "id": "aidc",
+            "title": "AIDC / data-center power",
+            "titleZh": "AIDC / 数据中心电力",
+            "summaryKey": "aidc",
+            "claims": [
+                {
+                    "src": "MS",
+                    "text": "AIDC (data-center & primary power) reaches RMB31.0bn revenue / RMB7.7bn net profit by 2028E — 26.5% of engine-segment revenue and 38% of group profit — built from 6,500 DC diesel gensets (ASP ~RMB2.3mn), gas engines ramping to RMB12bn and SOFC to RMB3.8bn. This earnings ramp is what the 90x SOTP multiple is applied to.",
+                    "textZh": "AIDC（数据中心及主电源）到2028E达到收入310亿元/净利润77亿元——占发动机分部收入26.5%、集团利润38%——由6,500台数据中心柴油机组（单价约230万元）、放量至120亿元的燃气发动机和38亿元的SOFC构成。90倍SOTP估值正是乘在这条盈利曲线上。",
+                    "chips": [
+                        {"k": "Actuals", "kZh": "实际数据", "v": "3y (2023–25)", "vZh": "3年 (2023–25)", "tone": "warn"},
+                        {"k": "Rev CAGR 25A→28E", "kZh": "收入CAGR 25A→28E", "v": "+132%", "tone": "warn"},
+                        {"k": "Net margin", "kZh": "净利率", "v": "25–27%, ~flat", "vZh": "25–27%，基本持平", "tone": "neutral"},
+                        {"k": "SOTP weight", "kZh": "SOTP权重", "v": "59% of equity value", "vZh": "占股权价值59%", "tone": "warn"},
+                    ],
+                },
+                {
+                    "src": "UBS",
+                    "text": "Baudouin data-center gensets reach RMB20.1bn revenue / RMB4.8bn net profit by 2030E on 6,621 units, with Weichai's DC market share peaking near 31% and net margin fading from 30% to 24%. UBS models diesel gensets only (no gas engines, no SOFC) and values the result at 15x 2030E, discounted back at 9%.",
+                    "textZh": "博杜安数据中心机组到2030E达到收入201亿元/净利润48亿元（6,621台），潍柴数据中心市场份额见顶于约31%，净利率从30%递减至24%。瑞银只对柴油机组建模（不含燃气发动机和SOFC），并对2030E结果按15倍估值、以9%折现。",
+                    "chips": [
+                        {"k": "Actuals", "kZh": "实际数据", "v": "3y (2023–25)", "vZh": "3年 (2023–25)", "tone": "warn"},
+                        {"k": "Rev CAGR 25A→30E", "kZh": "收入CAGR 25A→30E", "v": "+48%", "tone": "neutral"},
+                        {"k": "Margin path", "kZh": "利润率路径", "v": "fading 30%→24%", "vZh": "30%→24%递减", "tone": "neutral"},
+                        {"k": "Scope", "kZh": "口径", "v": "diesel gensets only", "vZh": "仅柴油机组", "tone": "warn"},
+                    ],
+                },
+            ],
+            "charts": [
+                {
+                    "title": "Data-center diesel genset volumes",
+                    "titleZh": "数据中心柴油机组销量",
+                    "unit": "units",
+                    "compare": [0, 1],
+                    "series": [
+                        {"src": "MS", "name": "Morgan Stanley", "nameZh": "摩根士丹利",
+                         "sheet": "Engine", "row": 130, "col0": 3, "n": 22, "y0": 2007, "slot": 1},
+                        {"src": "UBS", "name": "UBS", "nameZh": "瑞银",
+                         "sheet": "Power", "row": 10, "col0": 3, "n": 18, "y0": 2013, "slot": 2},
+                    ],
+                    "note": "Identical 2026E unit assumptions; they diverge from 2027E.",
+                    "noteZh": "两家2026E台数假设完全一致；自2027E起分化。",
+                },
+                {
+                    "title": "AIDC revenue — scope matters",
+                    "titleZh": "AIDC收入——口径决定差异",
+                    "unit": "rmbmn",
+                    "compare": [1, 2],   # like-for-like: MS diesel-only vs UBS
+                    "series": [
+                        {"src": "MS", "name": "MS — all AIDC (incl. gas + SOFC)", "nameZh": "大摩——AIDC合计（含燃气+SOFC）",
+                         "sheet": "Engine", "row": 85, "col0": 3, "n": 22, "y0": 2007, "scale": 1e-3, "slot": 3},
+                        {"src": "MS", "name": "MS — DC diesel only", "nameZh": "大摩——仅数据中心柴油机",
+                         "sheet": "Engine", "row": 78, "col0": 3, "n": 22, "y0": 2007, "scale": 1e-3, "slot": 1},
+                        {"src": "UBS", "name": "UBS — DC gensets (diesel)", "nameZh": "瑞银——数据中心机组（柴油）",
+                         "sheet": "Power", "row": 15, "col0": 3, "n": 18, "y0": 2013, "scale": 100, "slot": 2},
+                    ],
+                    "note": "On matching scope (diesel) the banks land within ~1% by 2028E; MS's extra RMB15.8bn is gas engines + SOFC that UBS does not model.",
+                    "noteZh": "口径一致（柴油）时两家2028E收入相差约1%；大摩多出的约158亿元来自瑞银未建模的燃气发动机与SOFC。",
+                },
+                {
+                    "title": "AIDC net profit — the SOTP earnings base",
+                    "titleZh": "AIDC净利润——SOTP估值的盈利基础",
+                    "unit": "rmbmn",
+                    "compare": [0, 1],
+                    "series": [
+                        {"src": "MS", "name": "Morgan Stanley", "nameZh": "摩根士丹利",
+                         "sheet": "Engine", "sumRows": [212, 214, 215], "col0": 3, "n": 22, "y0": 2007, "scale": 1e-3, "slot": 1},
+                        {"src": "UBS", "name": "UBS", "nameZh": "瑞银",
+                         "sheet": "Power", "row": 18, "col0": 3, "n": 18, "y0": 2013, "scale": 100, "slot": 2},
+                    ],
+                    "note": "MS applies 90x to its 2026E figure; UBS applies 15x to its 2030E figure discounted back at 9%.",
+                    "noteZh": "大摩对其2026E数字给90倍；瑞银对其2030E数字给15倍并按9%折现。",
+                },
+            ],
+            "drivers": [
+                {
+                    "src": "MS", "sheet": "Engine", "col0": 3, "n": 22, "y0": 2007,
+                    "rows": [
+                        {"name": "DC diesel genset volume", "nameZh": "数据中心柴油机组销量", "row": 130, "unit": "units", "unitZh": "台"},
+                        {"name": "DC diesel ASP", "nameZh": "数据中心柴油机组单价", "row": 190, "scale": 1e-3, "unit": "RMB mn / unit", "unitZh": "百万元/台"},
+                        {"name": "Gas engine volume (primary power)", "nameZh": "燃气发动机销量（主电源）", "row": 134, "unit": "units", "unitZh": "台"},
+                        {"name": "Gas engine ASP", "nameZh": "燃气发动机单价", "row": 192, "scale": 1e-3, "unit": "RMB mn / unit", "unitZh": "百万元/台"},
+                        {"name": "SOFC shipments", "nameZh": "SOFC出货量", "row": 137, "unit": "MW", "unitZh": "兆瓦"},
+                        {"name": "AIDC diesel net margin", "nameZh": "AIDC柴油机净利率", "row": 220, "pct": True, "unit": "%", "unitZh": "%"},
+                    ],
+                },
+                {
+                    "src": "UBS", "sheet": "Power", "col0": 3, "n": 18, "y0": 2013,
+                    "rows": [
+                        {"name": "AIDC genset volume", "nameZh": "AIDC机组销量", "row": 10, "unit": "units", "unitZh": "台"},
+                        {"name": "AIDC ASP", "nameZh": "AIDC机组单价", "row": 11, "scale": 0.01, "unit": "RMB mn / unit", "unitZh": "百万元/台"},
+                        {"name": "DC genset market demand", "nameZh": "数据中心机组市场规模", "row": 27, "unit": "units", "unitZh": "台"},
+                        {"name": "Weichai DC market share", "nameZh": "潍柴数据中心份额", "row": 28, "pct": True, "unit": "%", "unitZh": "%"},
+                        {"name": "AIDC net margin", "nameZh": "AIDC净利率", "row": 19, "pct": True, "unit": "%", "unitZh": "%"},
+                    ],
+                },
+            ],
+        },
+    ],
+
     # Section explainers — shown above the charts for the active section.
     # Keys: category names (as in metrics), plus 'segments' and 'sotp'.
     "summaries": {
@@ -305,6 +412,10 @@ CONFIG = {
         "segments": {
             "en": "Segment mix is the whole thesis in one chart. Engine and KION are the two biggest blocks; the AIDC opportunity (data-center backup diesel gensets, gas engines for primary power, SOFC fuel cells) sits inside the Engine segment — which is why Engine gross margin (~26–27%) runs three times the truck margin (~9%). The banks cut segments differently: UBS breaks out agri machinery (Lovol) and nets eliminations into Others.",
             "zh": "分部结构一图看懂整个投资逻辑。发动机和凯傲是最大的两块；AIDC机会（数据中心备用柴油发电机组、主电源燃气发动机、SOFC燃料电池）藏在发动机分部内——这也是发动机毛利率（约26–27%）三倍于重卡（约9%）的原因。两家分部口径不同：瑞银单列农机（雷沃），并将内部抵消并入“其他”。",
+        },
+        "aidc": {
+            "en": "Both banks build the AIDC (AI data-center power) business bottom-up: units × ASP × margin. There are only ~3 years of actuals (2023–25), so almost everything on this page is assumption — read the indicator chips before the lines. Key finding: on like-for-like diesel gensets the two banks nearly agree (2028E revenue within ~1%, identical 2026E unit counts); MS's much larger AIDC number is gas engines and SOFC that UBS doesn't model at all, and the valuation gap (90x vs 15x discounted) does the rest.",
+            "zh": "两家银行都自下而上地对AIDC（AI数据中心电力）业务建模：台数×单价×利润率。实际数据只有约3年（2023–25），因此本页几乎全部是假设——看曲线前先看指标标签。关键发现：在口径一致的柴油机组上，两家几乎一致（2028E收入相差约1%，2026E台数假设完全相同）；大摩更大的AIDC数字来自瑞银完全未建模的燃气发动机和SOFC，其余差距则来自估值倍数（90倍对15倍折现）。",
         },
         "sotp": {
             "en": "Sum-of-the-parts is where the two banks' targets split, and AIDC is the entire argument. Both value the traditional engine/truck/gearbox business at 9–13x 2026E earnings and the 46.5% KION stake near market value. The gap: MS treats data-center power as an AI-infrastructure growth asset — 90x its 2026E NP of RMB2.4bn = RMB213bn, 59% of group equity value (it models AIDC profit reaching RMB7.7bn, 38% of group, by 2028E). UBS instead takes 2030E power-gen profit of RMB9.8bn, caps it at 15x and discounts back at 9% = RMB114bn — and cut that value 24% in its April revision. That one line explains nearly all of the HK$47 vs HK$32 target gap.",
